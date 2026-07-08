@@ -19,8 +19,11 @@ class Holding:
 def load_holdings(path: Path = HOLDINGS_FILE) -> list[Holding]:
     if not path.exists():
         return []
-    with open(path) as f:
-        data = yaml.safe_load(f)
+    with open(path, encoding="utf-8") as f:
+        try:
+            data = yaml.safe_load(f)
+        except yaml.YAMLError:
+            return []
     if not data or "holdings" not in data:
         return []
     return [Holding(**h) for h in data["holdings"]]
@@ -37,7 +40,7 @@ def save_holdings(holdings: list[Holding], path: Path = HOLDINGS_FILE) -> None:
             for h in holdings
         ]
     }
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         yaml.dump(data, f, default_flow_style=False)
 
 
