@@ -34,9 +34,8 @@ type Model struct {
 func New() Model {
 	items := []list.Item{
 		item{title: "View Portfolio", desc: "Browse your holdings and charts"},
-		item{title: "Alerts & News", desc: "Price alerts and market news"},
-		item{title: "Add/Remove Position", desc: "Modify your portfolio"},
-		item{title: "Quit", desc: "Exit StockTUI"},
+		item{title: "News", desc: "Live Finnhub news for your holdings"},
+		item{title: "Quit", desc: "Exit MONETA"},
 	}
 
 	l := list.New(items, list.NewDefaultDelegate(), 0, 0)

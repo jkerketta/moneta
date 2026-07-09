@@ -31,9 +31,10 @@ type AppModel struct {
 }
 
 func New() *AppModel {
-	// Load Finnhub API key from .env (best-effort)
+	// Load Finnhub API key from various .env locations
 	data.LoadEnv(".env")
 	data.LoadEnv("../moneta/.env")
+	data.LoadEnv("/Users/josekerketta/firstmate/projects/moneta/.env")
 
 	m := &AppModel{
 		screen:    screenHome,
@@ -54,6 +55,12 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if wm, ok := msg.(tea.WindowSizeMsg); ok {
 		m.width = wm.Width
 		m.height = wm.Height
+		m.home.Width = wm.Width
+		m.home.Height = wm.Height
+		m.portfolio.Width = wm.Width
+		m.portfolio.Height = wm.Height
+		m.alerts.Width = wm.Width
+		m.alerts.Height = wm.Height
 	}
 
 	var cmd tea.Cmd
@@ -65,10 +72,10 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if km, ok := msg.(tea.KeyMsg); ok && km.String() == "enter" {
 			sel := m.home.Selected()
 			switch sel {
-			case "View Portfolio", "Add/Remove Position":
+			case "View Portfolio":
 				m.screen = screenPortfolio
 				m.loadPortfolio()
-			case "Alerts & News":
+			case "News":
 				m.screen = screenAlerts
 				symbols := make([]string, len(m.portfolio.Holdings))
 				for i, h := range m.portfolio.Holdings {
