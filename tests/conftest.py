@@ -21,18 +21,6 @@ def mock_finnhub_client() -> MagicMock:
 
 
 @pytest.fixture
-def mock_reddit_client() -> MagicMock:
-    client = MagicMock()
-    submission = MagicMock()
-    submission.title = "TSLA is looking great today"
-    submission.selftext = "Strong fundamentals and good outlook"
-    subreddit = MagicMock()
-    subreddit.search.return_value = [submission]
-    client.subreddit.return_value = subreddit
-    return client
-
-
-@pytest.fixture
 def temp_state_file(tmp_path: Path) -> Generator[Path, None, None]:
     state_file = tmp_path / "state.json"
     state_file.write_text('{"history": {}}')
