@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import os
-import sys
 import webbrowser
-from pathlib import Path
 
 import typer
 
@@ -76,11 +73,10 @@ def scan(
     load_env()
 
     finnhub_client = config.get_finnhub_client()
-    reddit_client = config.get_reddit_client()
 
     from moneta.report import run_scan
 
-    results = run_scan(ticker, finnhub_client, reddit_client)
+    results = run_scan(ticker, finnhub_client)
     if not results:
         typer.echo("No results. Check that you have holdings configured.")
         return
@@ -100,10 +96,9 @@ def check(
     if fresh:
         load_env()
         finnhub_client = config.get_finnhub_client()
-        reddit_client = config.get_reddit_client()
         from moneta.report import run_scan
 
-        results = run_scan(None, finnhub_client, reddit_client)
+        results = run_scan(None, finnhub_client)
     else:
         from moneta.report import load_state
         from moneta.portfolio import list_holdings

@@ -51,11 +51,10 @@ def test_scan():
         "ticker": "TSLA", "composite": 0.5, "trend": "flat",
         "advice": "Hold steady.", "alerted": False,
         "change": None, "finnhub_news": 0.5,
-        "finnhub_social": 0.5, "reddit_vader": 0.5,
+        "finnhub_social": 0.5,
     }
     mock_report = MagicMock(return_value=[mock_result])
     with patch("moneta.config.get_finnhub_client"), \
-         patch("moneta.config.get_reddit_client"), \
          patch("moneta.report.run_scan", mock_report):
         result = runner.invoke(app, ["scan"])
         assert result.exit_code == 0

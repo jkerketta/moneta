@@ -16,17 +16,17 @@ from moneta.report import (
 
 
 def test_compute_composite():
-    score = compute_composite(0.8, 0.6, 0.4)
-    assert score == pytest.approx(0.6)
+    score = compute_composite(0.8, 0.6)
+    assert score == pytest.approx(0.7)
 
 
 def test_compute_composite_with_none():
-    score = compute_composite(0.8, None, 0.4)
-    assert score == pytest.approx(0.6)
+    score = compute_composite(0.8, None)
+    assert score == pytest.approx(0.8)
 
 
 def test_compute_composite_all_none():
-    score = compute_composite(None, None, None)
+    score = compute_composite(None, None)
     assert score == 0.5
 
 
@@ -49,7 +49,6 @@ def test_record_sentiment(tmp_path: Path):
     record_sentiment("TSLA", {
         "finnhub_news": 0.6,
         "finnhub_social": 0.5,
-        "reddit_vader": 0.4,
         "composite": 0.5,
     }, path)
     state = load_state(path)
@@ -150,7 +149,4 @@ def test_generate_advice_neutral():
     assert "wait" in advice.lower() or "conviction" in advice.lower()
 
 
-def test_generate_advice_source_divergence():
-    sources = {"finnhub_news": 0.9, "reddit_vader": 0.3}
-    advice = generate_advice("TSLA", 0.6, sources, [])
-    assert "mixed" in advice.lower() or "disagree" in advice.lower()
+

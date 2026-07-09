@@ -4,8 +4,6 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
-from rich.layout import Layout
-from rich.columns import Columns
 from rich import box
 
 
@@ -43,9 +41,8 @@ def format_report(results: list[dict]) -> str:
         bar = _bar(composite)
 
         sources = (
-            f"Finnhub: {r.get('finnhub_news', 'N/A') or 'N/A'}  "
-            f"Social: {r.get('finnhub_social', 'N/A') or 'N/A'}  "
-            f"Reddit: {r.get('reddit_vader', 'N/A') or 'N/A'}"
+            f"Finnhub News: {r.get('finnhub_news', 'N/A') or 'N/A'}  "
+            f"Finnhub Social: {r.get('finnhub_social', 'N/A') or 'N/A'}"
         )
         advice = r.get("advice", "")
 

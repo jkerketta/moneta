@@ -8,16 +8,14 @@ from typing import Any, Optional
 import numpy as np
 
 from moneta.config import STATE_FILE, MONETA_DIR
-from moneta.sentiment import get_reddit_sentiment
 from moneta.news import get_finnhub_news_sentiment, get_finnhub_social_sentiment
 
 
 def compute_composite(
     finnhub_news: Optional[float],
     finnhub_social: Optional[float],
-    reddit_vader: Optional[float],
 ) -> float:
-    scores = [s for s in [finnhub_news, finnhub_social, reddit_vader] if s is not None]
+    scores = [s for s in [finnhub_news, finnhub_social] if s is not None]
     if not scores:
         return 0.5
     return sum(scores) / len(scores)
@@ -92,12 +90,6 @@ def generate_advice(
 ) -> str:
     direction, _ = detect_trend(history)
 
-    finnhub_news = sources.get("finnhub_news")
-    reddit_vader = sources.get("reddit_vader")
-    if finnhub_news is not None and reddit_vader is not None:
-        if abs(finnhub_news - reddit_vader) > 0.4:
-            return "Mixed signals - institutions and retail disagree. Wait for consensus."
-
     if composite > 0.8:
         return "Excessive optimism - consider taking some profits or trimming."
     if composite < 0.2:
@@ -132,7 +124,6 @@ def generate_advice(
 def run_scan(
     ticker: Optional[str] = None,
     finnhub_client: Any = None,
-    reddit_client: Any = None,
     path: Path = STATE_FILE,
 ) -> list[dict]:
     from moneta.portfolio import list_holdings
@@ -157,19 +148,13 @@ def run_scan(
         except Exception:
             finnhub_social = None
 
-        try:
-            reddit_vader = get_reddit_sentiment(holding.symbol, reddit_client=reddit_client)
-        except Exception:
-            reddit_vader = None
-
-        composite = compute_composite(finnhub_news, finnhub_social, reddit_vader)
+        composite = compute_composite(finnhub_news, finnhub_social)
 
         result = {
             "date": today,
             "ticker": holding.symbol,
             "finnhub_news": finnhub_news,
             "finnhub_social": finnhub_social,
-            "reddit_vader": reddit_vader,
             "composite": composite,
         }
 
@@ -186,7 +171,7 @@ def run_scan(
         result["advice"] = generate_advice(
             holding.symbol,
             composite,
-            {"finnhub_news": finnhub_news, "reddit_vader": reddit_vader},
+            {"finnhub_news": finnhub_news, "finnhub_social": finnhub_social},
             history[:-1],
         )
 
