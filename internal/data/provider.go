@@ -1,10 +1,6 @@
 package data
 
-import (
-	"fmt"
-
-	"github.com/ni5arga/stock-tui/internal/models"
-)
+import "github.com/jkerketta/stocktui/internal/models"
 
 // Provider defines the interface for data sources.
 type Provider interface {
@@ -15,16 +11,5 @@ type Provider interface {
 
 // NewProvider returns the requested provider implementation.
 func NewProvider(name string) (Provider, error) {
-	switch name {
-	case "simulator":
-		return NewSimulator(), nil
-	case "coingecko":
-		return NewCoinGecko(), nil
-	case "yahoo":
-		return NewYahoo(), nil
-	case "multi", "auto":
-		return NewMulti(), nil
-	default:
-		return NewMulti(), fmt.Errorf("unknown provider %q, using multi", name)
-	}
+	return NewYahoo(), nil
 }
