@@ -12,6 +12,18 @@ const (
 	Range30D TimeRange = "30D"
 )
 
+// Holding represents a single portfolio position.
+type Holding struct {
+	Symbol   string  `yaml:"symbol"`
+	Shares   float64 `yaml:"shares"`
+	AvgPrice float64 `yaml:"avg_price"`
+}
+
+// Portfolio is the top-level portfolio YAML structure.
+type Portfolio struct {
+	Holdings []Holding `yaml:"holdings"`
+}
+
 // Quote represents a snapshot of an asset's price.
 type Quote struct {
 	Symbol      string
