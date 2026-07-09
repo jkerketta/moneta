@@ -15,12 +15,19 @@ app.add_typer(portfolio_app, name="portfolio", help="Manage your stock holdings.
 
 @portfolio_app.command()
 def add(
-    symbol: str = typer.Argument(..., help="Stock ticker symbol"),
-    shares: float = typer.Option(..., "--shares", "-s", help="Number of shares"),
+    symbol: str = typer.Argument(None, help="Stock ticker symbol (omit for interactive)"),
+    shares: float = typer.Option(None, "--shares", "-s", help="Number of shares"),
     cost: float = typer.Option(None, "--cost", "-c", help="Cost basis per share"),
 ):
     """Add a holding to your portfolio."""
     ensure_dirs()
+    if symbol is None:
+        symbol = typer.prompt("Symbol").strip().upper()
+    if shares is None:
+        shares = float(typer.prompt("Shares"))
+    if cost is None:
+        cost_input = typer.prompt("Cost basis (optional)", default="")
+        cost = float(cost_input) if cost_input.strip() else None
     add_holding(symbol, shares, cost)
     typer.echo(f"Added {shares} shares of {symbol.upper()}")
 
