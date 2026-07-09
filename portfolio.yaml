@@ -1,19 +1,16 @@
 holdings:
-  - symbol: NVDA
-    shares: 10
-    avg_price: 800.00
-  - symbol: GOOGL
-    shares: 5
-    avg_price: 180.00
-  - symbol: NBIS
-    shares: 20
-    avg_price: 50.00
-  - symbol: RKLB
-    shares: 100
-    avg_price: 8.00
-  - symbol: XEQT
-    shares: 50
-    avg_price: 30.00
-  - symbol: CHPS.TO
-    shares: 25
-    avg_price: 12.00
+    - symbol: GOOGL
+      shares: 5
+      avg_price: 180
+    - symbol: NBIS
+      shares: 20
+      avg_price: 50
+    - symbol: RKLB
+      shares: 100
+      avg_price: 8
+    - symbol: XEQT
+      shares: 50
+      avg_price: 30
+    - symbol: CHPS.TO
+      shares: 25
+      avg_price: 12

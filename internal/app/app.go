@@ -31,6 +31,10 @@ type AppModel struct {
 }
 
 func New() *AppModel {
+	// Load Finnhub API key from .env (best-effort)
+	data.LoadEnv(".env")
+	data.LoadEnv("../moneta/.env")
+
 	m := &AppModel{
 		screen:    screenHome,
 		home:      home.New(),
@@ -66,6 +70,12 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.loadPortfolio()
 			case "Alerts & News":
 				m.screen = screenAlerts
+				symbols := make([]string, len(m.portfolio.Holdings))
+				for i, h := range m.portfolio.Holdings {
+					symbols[i] = h.Symbol
+				}
+				m.alerts = m.alerts.SetSymbols(symbols)
+				return m, m.alerts.Init()
 			case "Quit":
 				return m, tea.Quit
 			}
@@ -85,6 +95,10 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case screenAlerts:
 		m.alerts, cmd = m.alerts.Update(msg)
+		if km, ok := msg.(tea.KeyMsg); ok && (km.String() == "escape" || km.String() == "esc") {
+			m.screen = screenHome
+			return m, nil
+		}
 		return m, cmd
 	}
 
