@@ -6,12 +6,12 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/ni5arga/stock-tui/internal/data"
-	"github.com/ni5arga/stock-tui/internal/models"
-	"github.com/ni5arga/stock-tui/internal/ui/chart"
-	"github.com/ni5arga/stock-tui/internal/ui/footer"
-	"github.com/ni5arga/stock-tui/internal/ui/help"
-	"github.com/ni5arga/stock-tui/internal/ui/watchlist"
+	"github.com/jkerketta/stocktui/internal/data"
+	"github.com/jkerketta/stocktui/internal/models"
+	"github.com/jkerketta/stocktui/internal/ui/chart"
+	"github.com/jkerketta/stocktui/internal/ui/footer"
+	"github.com/jkerketta/stocktui/internal/ui/help"
+	"github.com/jkerketta/stocktui/internal/ui/watchlist"
 )
 
 type AppModel struct {

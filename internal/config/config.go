@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/ni5arga/stock-tui/internal/models"
+	"github.com/jkerketta/stocktui/internal/models"
 	"github.com/spf13/viper"
 )
 

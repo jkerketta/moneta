@@ -10,8 +10,8 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/ni5arga/stock-tui/internal/models"
-	"github.com/ni5arga/stock-tui/internal/ui/styles"
+	"github.com/jkerketta/stocktui/internal/models"
+	"github.com/jkerketta/stocktui/internal/ui/styles"
 )
 
 type SortMode int
