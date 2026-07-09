@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ni5arga/stock-tui/internal/models"
+	"github.com/jkerketta/stocktui/internal/models"
 )
 
 type Yahoo struct{}
