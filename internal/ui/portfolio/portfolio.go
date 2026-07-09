@@ -48,6 +48,10 @@ func New() Model {
 	}
 }
 
+func (m Model) InForm() bool {
+	return m.mode != modeBrowse
+}
+
 func (m Model) Init() tea.Cmd {
 	return m.fetchQuotes()
 }

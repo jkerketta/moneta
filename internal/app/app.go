@@ -9,13 +9,16 @@ import (
 	"github.com/jkerketta/stocktui/internal/ui/portfolio"
 )
 
+type navigateBack struct{}
+
+func backCmd() tea.Msg { return navigateBack{} }
+
 type screen int
 
 const (
 	screenHome screen = iota
 	screenPortfolio
 	screenAlerts
-	screenAdd
 )
 
 type AppModel struct {
@@ -23,19 +26,19 @@ type AppModel struct {
 	home      home.Model
 	portfolio portfolio.Model
 	alerts    alerts.Model
-	holdings  []models.Holding
 	width     int
 	height    int
-	err       error
 }
 
 func New() *AppModel {
-	return &AppModel{
+	m := &AppModel{
 		screen:    screenHome,
 		home:      home.New(),
 		portfolio: portfolio.New(),
 		alerts:    alerts.New(),
 	}
+	m.loadPortfolio()
+	return m
 }
 
 func (m *AppModel) Init() tea.Cmd {
@@ -43,51 +46,48 @@ func (m *AppModel) Init() tea.Cmd {
 }
 
 func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-
-	case tea.KeyMsg:
-		if m.screen == screenHome {
-			switch msg.String() {
-			case "q", "ctrl+c":
-				return m, tea.Quit
-			case "enter":
-				sel := m.home.Selected()
-				switch sel {
-				case "View Portfolio":
-					m.screen = screenPortfolio
-					m.loadPortfolio()
-				case "Alerts & News":
-					m.screen = screenAlerts
-				case "Add/Remove Position":
-					m.screen = screenAdd
-				case "Quit":
-					return m, tea.Quit
-				}
-				return m, nil
-			}
-		}
-		if msg.String() == "escape" || msg.String() == "esc" {
-			m.screen = screenHome
-			return m, nil
-		}
+	// Handle window size globally
+	if wm, ok := msg.(tea.WindowSizeMsg); ok {
+		m.width = wm.Width
+		m.height = wm.Height
 	}
 
 	var cmd tea.Cmd
+
 	switch m.screen {
 	case screenHome:
 		m.home, cmd = m.home.Update(msg)
+		// Check if user selected a menu item
+		if km, ok := msg.(tea.KeyMsg); ok && km.String() == "enter" {
+			sel := m.home.Selected()
+			switch sel {
+			case "View Portfolio", "Add/Remove Position":
+				m.screen = screenPortfolio
+				m.loadPortfolio()
+			case "Alerts & News":
+				m.screen = screenAlerts
+			case "Quit":
+				return m, tea.Quit
+			}
+		}
+		return m, cmd
+
 	case screenPortfolio:
 		m.portfolio, cmd = m.portfolio.Update(msg)
+		if km, ok := msg.(tea.KeyMsg); ok && (km.String() == "escape" || km.String() == "esc") {
+			if !m.portfolio.InForm() {
+				m.savePortfolio()
+				m.screen = screenHome
+				return m, nil
+			}
+		}
+		return m, cmd
+
 	case screenAlerts:
 		m.alerts, cmd = m.alerts.Update(msg)
-	case screenAdd:
-		// TODO: handle add form
-		m.screen = screenHome
-		return m, nil
+		return m, cmd
 	}
+
 	return m, cmd
 }
 
@@ -107,11 +107,14 @@ func (m *AppModel) View() string {
 func (m *AppModel) loadPortfolio() {
 	p, err := data.LoadPortfolio(data.PortfolioPath)
 	if err != nil {
-		m.err = err
 		return
 	}
-	m.holdings = p.Holdings
 	m.portfolio.Holdings = p.Holdings
+}
+
+func (m *AppModel) savePortfolio() {
+	p := &models.Portfolio{Holdings: m.portfolio.Holdings}
+	data.SavePortfolio(data.PortfolioPath, p)
 }
 
 func (m *AppModel) Close() {}
