@@ -21,11 +21,12 @@ def add(
 ):
     """Add a holding to your portfolio."""
     ensure_dirs()
+    interactive = symbol is None
     if symbol is None:
         symbol = typer.prompt("Symbol").strip().upper()
     if shares is None:
         shares = float(typer.prompt("Shares"))
-    if cost is None:
+    if cost is None and interactive:
         cost_input = typer.prompt("Cost basis (optional)", default="")
         cost = float(cost_input) if cost_input.strip() else None
     add_holding(symbol, shares, cost)
