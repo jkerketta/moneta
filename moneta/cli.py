@@ -134,3 +134,23 @@ def check(
     from moneta.display import render_report
 
     render_report(results)
+
+
+@app.command()
+def watch(
+    action: str = typer.Argument("status", help="install, uninstall, or status"),
+):
+    """Manage daily scan scheduling via launchd."""
+    from moneta.scheduler import install_plist, uninstall_plist, status
+
+    if action == "install":
+        install_plist()
+        typer.echo("Daily scan scheduled at 8:00 AM.")
+    elif action == "uninstall":
+        uninstall_plist()
+        typer.echo("Scheduled scan removed.")
+    elif action == "status":
+        typer.echo(status())
+    else:
+        typer.echo("Usage: moneta watch [install|uninstall|status]", err=True)
+        raise typer.Exit(1)
