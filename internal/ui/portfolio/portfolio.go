@@ -46,8 +46,10 @@ type Model struct {
 	news        []models.NewsItem
 	newsLoading bool
 	newsErr     string
-	newsScroll  int
+	newsPage    int
 	sentiment   data.SentimentSummary
+
+	marketQuotes map[string]models.Quote
 
 	tickerNews        []models.NewsItem
 	tickerNewsLoading bool
@@ -65,10 +67,11 @@ type Model struct {
 
 func New() Model {
 	return Model{
-		Chart:      chart.New(),
-		provider:   data.NewYahoo(),
-		quotes:     make(map[string]models.Quote),
-		chartRange: models.Range24H,
+		Chart:        chart.New(),
+		provider:     data.NewYahoo(),
+		quotes:       make(map[string]models.Quote),
+		marketQuotes: make(map[string]models.Quote),
+		chartRange:   models.Range24H,
 	}
 }
 
@@ -84,16 +87,13 @@ func (m Model) Init() tea.Cmd {
 	return cmd
 }
 
-// RefreshMarketData kicks off a live quote + news fetch for the current
-// holdings. Safe to call at app startup and again when entering the
+// RefreshMarketData kicks off live quotes for holdings + market data for the
+// side panel. Safe to call at app startup and again when entering the
 // portfolio screen.
 func (m Model) RefreshMarketData() (Model, tea.Cmd) {
-	if len(m.Holdings) == 0 {
-		return m, nil
-	}
-	m.quotesLoading = true
+	m.quotesLoading = len(m.Holdings) > 0
 	m.newsLoading = true
-	return m, tea.Batch(m.fetchQuotes(), m.fetchNews())
+	return m, tea.Batch(m.fetchQuotes(), m.fetchNews(), m.fetchMarketQuotes())
 }
 
 // HandleAsyncMsg applies quote/news/history results even when the portfolio
@@ -101,7 +101,7 @@ func (m Model) RefreshMarketData() (Model, tea.Cmd) {
 // Returns handled=false for unrelated messages so the caller can keep routing.
 func (m Model) HandleAsyncMsg(msg tea.Msg) (Model, tea.Cmd, bool) {
 	switch msg.(type) {
-	case quotesMsg, newsMsg, historyMsg, tickerNewsMsg:
+	case quotesMsg, newsMsg, historyMsg, tickerNewsMsg, marketQuotesMsg:
 		m, cmd := m.Update(msg)
 		return m, cmd, true
 	default:
@@ -125,6 +125,11 @@ type quotesMsg struct {
 type newsMsg struct {
 	news []models.NewsItem
 	err  error
+}
+
+type marketQuotesMsg struct {
+	quotes []models.Quote
+	err    error
 }
 
 type tickerNewsMsg struct {
@@ -157,6 +162,14 @@ func (m Model) fetchNews() tea.Cmd {
 	return func() tea.Msg {
 		news, err := provider.FetchAllNews(marketSignals)
 		return newsMsg{news: news, err: err}
+	}
+}
+
+func (m Model) fetchMarketQuotes() tea.Cmd {
+	provider := m.provider
+	return func() tea.Msg {
+		quotes, err := provider.GetQuotes(marketSignals)
+		return marketQuotesMsg{quotes: quotes, err: err}
 	}
 }
 
@@ -209,6 +222,14 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case marketQuotesMsg:
+		if msg.err == nil {
+			for _, q := range msg.quotes {
+				m.marketQuotes[q.Symbol] = q
+			}
+		}
+		return m, nil
+
 	case newsMsg:
 		m.newsLoading = false
 		if msg.err != nil {
@@ -216,6 +237,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		} else {
 			m.news = msg.news
 			m.newsErr = ""
+			m.newsPage = 0
 			sort.Slice(m.news, func(i, j int) bool { return m.news[i].Datetime > m.news[j].Datetime })
 			m.sentiment = data.ScoreSentiment(m.news)
 		}
@@ -286,16 +308,14 @@ func (m Model) updateBrowse(msg tea.KeyMsg) (Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case "J":
-		if m.newsScroll < len(m.news)-1 {
-			m.newsScroll++
+	case "left":
+		if m.newsPage > 0 {
+			m.newsPage--
 		}
 		return m, nil
 
-	case "K":
-		if m.newsScroll > 0 {
-			m.newsScroll--
-		}
+	case "right":
+		m.newsPage++
 		return m, nil
 
 	case "enter":
@@ -572,7 +592,7 @@ func (m Model) mainView() string {
 	}
 
 	footer := lipgloss.NewStyle().Foreground(theme.ColorMuted).
-		Render("  a add  d remove  ↵ chart  n news  r refresh  ↑↓ select  J/K scroll news  Esc back")
+		Render("  a add  d remove  ↵ chart  n news  r refresh  ↑↓ select  ← → browse news  Esc back")
 
 	return lipgloss.JoinVertical(lipgloss.Left, body, footer)
 }

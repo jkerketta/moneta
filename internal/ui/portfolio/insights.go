@@ -131,29 +131,63 @@ func timeAgo(unix int64) string {
 	}
 }
 
-func newsListView(news []models.NewsItem, scrollIdx, maxVisible int, width int) string {
+func newsListView(news []models.NewsItem, start, maxVisible int, width int) string {
 	if len(news) == 0 {
 		return lipgloss.NewStyle().Foreground(theme.ColorMuted).Italic(true).Render("No recent market news.")
 	}
 
-	start := clampInt(scrollIdx, 0, max(len(news)-1, 0))
 	end := min(start+maxVisible, len(news))
 
 	var rows []string
 	for _, item := range news[start:end] {
 		headline := lipgloss.NewStyle().Foreground(theme.ColorText).Render(truncate(item.Headline, max(width, 20)))
 		meta := lipgloss.NewStyle().Foreground(theme.ColorMuted).
-			Render(fmt.Sprintf("  %s · %s · %s", item.Related, item.Source, timeAgo(item.Datetime)))
+			Render(fmt.Sprintf("  %s · %s", item.Source, timeAgo(item.Datetime)))
 		rows = append(rows, headline+"\n"+meta)
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	if len(news) > maxVisible {
-		pager := lipgloss.NewStyle().Foreground(theme.ColorMuted).Italic(true).
-			Render(fmt.Sprintf("  %d-%d of %d · J/K scroll", start+1, end, len(news)))
-		body = lipgloss.JoinVertical(lipgloss.Left, body, pager)
-	}
 	return body
+}
+
+func marketMetricsView(quotes map[string]models.Quote) string {
+	if len(quotes) == 0 {
+		return lipgloss.NewStyle().Foreground(theme.ColorMuted).Italic(true).Render("No market data yet.")
+	}
+
+	type entry struct {
+		symbol string
+		name   string
+	}
+	entries := []entry{
+		{"^GSPC", "S&P"},
+		{"^DJI", "DJ"},
+		{"^IXIC", "NAS"},
+		{"CL=F", "OIL"},
+		{"GC=F", "GLD"},
+	}
+
+	var rows []string
+	for _, e := range entries {
+		q, ok := quotes[e.symbol]
+		if !ok {
+			continue
+		}
+		plStyle := theme.PositiveChange
+		if q.ChangePct < 0 {
+			plStyle = theme.NegativeChange
+		}
+		label := lipgloss.NewStyle().Foreground(theme.ColorMuted).Render(fmt.Sprintf("%-4s", e.name))
+		price := lipgloss.NewStyle().Foreground(theme.ColorText).Render(fmt.Sprintf("%9s", formatMoney(q.Price, "USD")))
+		pct := plStyle.Render(fmt.Sprintf("%+.2f%%", q.ChangePct))
+		rows = append(rows, fmt.Sprintf("%s %s %s", label, price, pct))
+	}
+
+	if len(rows) == 0 {
+		return lipgloss.NewStyle().Foreground(theme.ColorMuted).Italic(true).Render("No market data yet.")
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, rows...)
 }
 
 // insightsView renders the right-hand "cute window": sentiment, today's
@@ -170,17 +204,34 @@ func (m Model) insightsView(width, height int) string {
 	movers := computeMovers(m.Holdings, m.quotes)
 	alertsBody := moversView(movers)
 
+	maxVisible := clampInt(height/6, 2, 6)
+
 	var newsBody string
 	switch {
-	case len(m.Holdings) == 0:
-		newsBody = lipgloss.NewStyle().Foreground(theme.ColorMuted).Italic(true).Render("Add a position to see news.")
 	case m.newsLoading:
-		newsBody = lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("Loading news…")
+		newsBody = lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("Loading market data…")
 	case m.newsErr != "":
 		newsBody = lipgloss.NewStyle().Foreground(theme.ColorRed).Render("Error: " + m.newsErr)
+	case m.newsPage == 0:
+		newsBody = marketMetricsView(m.marketQuotes)
 	default:
-		maxVisible := clampInt(height/6, 2, 6)
-		newsBody = newsListView(m.news, m.newsScroll, maxVisible, width-4)
+		start := (m.newsPage - 1) * maxVisible
+		if start >= len(m.news) {
+			newsBody = lipgloss.NewStyle().Foreground(theme.ColorMuted).Italic(true).Render("No more headlines.")
+		} else {
+			newsBody = newsListView(m.news, start, maxVisible, width-4)
+		}
+	}
+
+	// Page nav indicator
+	totalPages := 1
+	if len(m.news) > 0 {
+		totalPages += (len(m.news) + maxVisible - 1) / maxVisible
+	}
+	if totalPages > 1 {
+		pageNav := lipgloss.NewStyle().Foreground(theme.ColorMuted).Italic(true).
+			Render(fmt.Sprintf("  ← → page %d/%d", m.newsPage+1, totalPages))
+		newsBody = lipgloss.JoinVertical(lipgloss.Left, newsBody, "", pageNav)
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Left,

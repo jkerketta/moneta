@@ -62,10 +62,11 @@ func (y *Yahoo) fetchQuoteFromChart(symbol string) (models.Quote, error) {
 		Chart struct {
 			Result []struct {
 				Meta struct {
-					Symbol             string  `json:"symbol"`
-					RegularMarketPrice float64 `json:"regularMarketPrice"`
-					ChartPreviousClose float64 `json:"chartPreviousClose"`
-					PreviousClose      float64 `json:"previousClose"`
+					Symbol                   string   `json:"symbol"`
+					RegularMarketPrice       float64  `json:"regularMarketPrice"`
+					RegularMarketChangePct   *float64 `json:"regularMarketChangePercent"`
+					ChartPreviousClose       float64  `json:"chartPreviousClose"`
+					PreviousClose            float64  `json:"previousClose"`
 				} `json:"meta"`
 			} `json:"result"`
 			Error *struct {
@@ -90,13 +91,17 @@ func (y *Yahoo) fetchQuoteFromChart(symbol string) (models.Quote, error) {
 		return models.Quote{}, fmt.Errorf("no price for %s", symbol)
 	}
 
-	prev := meta.ChartPreviousClose
-	if prev == 0 {
-		prev = meta.PreviousClose
-	}
 	changePct := 0.0
-	if prev > 0 {
-		changePct = (meta.RegularMarketPrice - prev) / prev * 100
+	if meta.RegularMarketChangePct != nil {
+		changePct = *meta.RegularMarketChangePct
+	} else {
+		prev := meta.ChartPreviousClose
+		if prev == 0 {
+			prev = meta.PreviousClose
+		}
+		if prev > 0 {
+			changePct = (meta.RegularMarketPrice - prev) / prev * 100
+		}
 	}
 
 	sym := meta.Symbol
