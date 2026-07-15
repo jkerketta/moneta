@@ -4,7 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/jkerketta/stocktui/internal/models"
@@ -299,7 +303,10 @@ func (y *Yahoo) FetchAllNews(symbols []string) ([]models.NewsItem, error) {
 			continue
 		}
 		for _, item := range items {
-			key := fmt.Sprintf("%s-%d-%s", item.Related, item.Datetime, item.Headline)
+			key := item.URL
+			if key == "" {
+				key = strings.ToLower(item.Headline)
+			}
 			if !seen[key] {
 				seen[key] = true
 				all = append(all, item)
@@ -307,4 +314,44 @@ func (y *Yahoo) FetchAllNews(symbols []string) ([]models.NewsItem, error) {
 		}
 	}
 	return all, nil
+}
+
+// changePctRe extracts the daily change percentage from a Yahoo Finance quote
+// page header, e.g. "(+0.38%)" or "(-0.07%)".
+var changePctRe = regexp.MustCompile(`\(([+-]\d+\.\d+)%\)`)
+
+// ScrapeMarketChange fetches a Yahoo Finance quote page and extracts the daily
+// change percentage for the given symbol — exactly as shown on yahoo.com.
+func ScrapeMarketChange(symbol string) (float64, error) {
+	path := url.PathEscape(symbol)
+	u := "https://finance.yahoo.com/quote/" + path
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, u, nil)
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("User-Agent", "stock-tui/1.0")
+	req.Header.Set("Accept", "text/html")
+
+	resp, err := defaultClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, err
+	}
+
+	m := changePctRe.FindSubmatch(body)
+	if len(m) < 2 {
+		return 0, fmt.Errorf("no change percentage found for %s", symbol)
+	}
+
+	var pct float64
+	if _, err := fmt.Sscanf(string(m[1]), "%f", &pct); err != nil {
+		return 0, fmt.Errorf("parse change percentage for %s: %w", symbol, err)
+	}
+	return pct, nil
 }

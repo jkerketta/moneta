@@ -93,7 +93,7 @@ func (m Model) Init() tea.Cmd {
 func (m Model) RefreshMarketData() (Model, tea.Cmd) {
 	m.quotesLoading = len(m.Holdings) > 0
 	m.newsLoading = true
-	return m, tea.Batch(m.fetchQuotes(), m.fetchNews(), m.fetchMarketQuotes())
+	return m, tea.Batch(m.fetchQuotes(), m.fetchNews(), m.fetchMarketQuotes(), m.fetchScrapeMarketChanges())
 }
 
 // HandleAsyncMsg applies quote/news/history results even when the portfolio
@@ -101,7 +101,7 @@ func (m Model) RefreshMarketData() (Model, tea.Cmd) {
 // Returns handled=false for unrelated messages so the caller can keep routing.
 func (m Model) HandleAsyncMsg(msg tea.Msg) (Model, tea.Cmd, bool) {
 	switch msg.(type) {
-	case quotesMsg, newsMsg, historyMsg, tickerNewsMsg, marketQuotesMsg:
+	case quotesMsg, newsMsg, historyMsg, tickerNewsMsg, marketQuotesMsg, scrapeMsg:
 		m, cmd := m.Update(msg)
 		return m, cmd, true
 	default:
@@ -130,6 +130,10 @@ type newsMsg struct {
 type marketQuotesMsg struct {
 	quotes []models.Quote
 	err    error
+}
+
+type scrapeMsg struct {
+	changes map[string]float64
 }
 
 type tickerNewsMsg struct {
@@ -170,6 +174,20 @@ func (m Model) fetchMarketQuotes() tea.Cmd {
 	return func() tea.Msg {
 		quotes, err := provider.GetQuotes(marketSignals)
 		return marketQuotesMsg{quotes: quotes, err: err}
+	}
+}
+
+func (m Model) fetchScrapeMarketChanges() tea.Cmd {
+	return func() tea.Msg {
+		changes := make(map[string]float64)
+		for _, sym := range marketSignals {
+			pct, err := data.ScrapeMarketChange(sym)
+			if err != nil {
+				continue
+			}
+			changes[sym] = pct
+		}
+		return scrapeMsg{changes: changes}
 	}
 }
 
@@ -226,6 +244,15 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		if msg.err == nil {
 			for _, q := range msg.quotes {
 				m.marketQuotes[q.Symbol] = q
+			}
+		}
+		return m, nil
+
+	case scrapeMsg:
+		for symbol, pct := range msg.changes {
+			if q, ok := m.marketQuotes[symbol]; ok {
+				q.ChangePct = pct
+				m.marketQuotes[symbol] = q
 			}
 		}
 		return m, nil
