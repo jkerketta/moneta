@@ -22,7 +22,12 @@ const (
 	modeAdd
 	modeRemove
 	modeChart
+	modeNewsDetail
 )
+
+// marketSignals are the broad-market tickers whose news fills the Market
+// Pulse side panel — S&P 500, Dow, NASDAQ, Crude Oil, Gold.
+var marketSignals = []string{"^GSPC", "^DJI", "^IXIC", "CL=F", "GC=F"}
 
 // Model is the consolidated portfolio hub: allocation donut + positions on
 // the left, and a sentiment/alerts/news window on the right. Adding a
@@ -43,6 +48,11 @@ type Model struct {
 	newsErr     string
 	newsScroll  int
 	sentiment   data.SentimentSummary
+
+	tickerNews        []models.NewsItem
+	tickerNewsLoading bool
+	tickerNewsErr     string
+	tickerNewsScroll  int
 
 	form addForm
 
@@ -91,7 +101,7 @@ func (m Model) RefreshMarketData() (Model, tea.Cmd) {
 // Returns handled=false for unrelated messages so the caller can keep routing.
 func (m Model) HandleAsyncMsg(msg tea.Msg) (Model, tea.Cmd, bool) {
 	switch msg.(type) {
-	case quotesMsg, newsMsg, historyMsg:
+	case quotesMsg, newsMsg, historyMsg, tickerNewsMsg:
 		m, cmd := m.Update(msg)
 		return m, cmd, true
 	default:
@@ -117,6 +127,12 @@ type newsMsg struct {
 	err  error
 }
 
+type tickerNewsMsg struct {
+	symbol string
+	news   []models.NewsItem
+	err    error
+}
+
 type historyMsg struct {
 	symbol string
 	tr     models.TimeRange
@@ -137,14 +153,18 @@ func (m Model) fetchQuotes() tea.Cmd {
 }
 
 func (m Model) fetchNews() tea.Cmd {
-	symbols := m.symbols()
-	if len(symbols) == 0 {
-		return nil
-	}
 	provider := m.provider
 	return func() tea.Msg {
-		news, err := provider.FetchAllNews(symbols)
+		news, err := provider.FetchAllNews(marketSignals)
 		return newsMsg{news: news, err: err}
+	}
+}
+
+func (m Model) fetchTickerNews(symbol string) tea.Cmd {
+	provider := m.provider
+	return func() tea.Msg {
+		news, err := provider.FetchNews(symbol, 10)
+		return tickerNewsMsg{symbol: symbol, news: news, err: err}
 	}
 }
 
@@ -174,6 +194,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			return m.updateRemoveConfirm(msg)
 		case modeChart:
 			return m.updateChartOverlay(msg)
+		case modeNewsDetail:
+			return m.updateNewsDetail(msg)
 		default:
 			return m.updateBrowse(msg)
 		}
@@ -196,6 +218,18 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			m.newsErr = ""
 			sort.Slice(m.news, func(i, j int) bool { return m.news[i].Datetime > m.news[j].Datetime })
 			m.sentiment = data.ScoreSentiment(m.news)
+		}
+		return m, nil
+
+	case tickerNewsMsg:
+		m.tickerNewsLoading = false
+		if msg.err != nil {
+			m.tickerNewsErr = msg.err.Error()
+		} else {
+			m.tickerNews = msg.news
+			m.tickerNewsErr = ""
+			m.tickerNewsScroll = 0
+			sort.Slice(m.tickerNews, func(i, j int) bool { return m.tickerNews[i].Datetime > m.tickerNews[j].Datetime })
 		}
 		return m, nil
 
@@ -275,6 +309,18 @@ func (m Model) updateBrowse(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.Chart.SetLoading(true)
 		return m, m.fetchHistory(sym, m.chartRange)
 
+	case "n":
+		if len(m.Holdings) == 0 {
+			return m, nil
+		}
+		sym := m.Holdings[m.selectedIdx].Symbol
+		m.mode = modeNewsDetail
+		m.tickerNewsLoading = true
+		m.tickerNews = nil
+		m.tickerNewsErr = ""
+		m.tickerNewsScroll = 0
+		return m, m.fetchTickerNews(sym)
+
 	case "r":
 		return m.RefreshMarketData()
 	}
@@ -344,6 +390,25 @@ func (m Model) updateChartOverlay(msg tea.KeyMsg) (Model, tea.Cmd) {
 	}
 	m.Chart.SetLoading(true)
 	return m, m.fetchHistory(m.chartSymbol, m.chartRange)
+}
+
+func (m Model) updateNewsDetail(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch msg.String() {
+	case "escape", "esc", "n":
+		m.mode = modeBrowse
+		return m, nil
+	case "j", "J", "down":
+		if m.tickerNewsScroll < len(m.tickerNews)-1 {
+			m.tickerNewsScroll++
+		}
+		return m, nil
+	case "k", "K", "up":
+		if m.tickerNewsScroll > 0 {
+			m.tickerNewsScroll--
+		}
+		return m, nil
+	}
+	return m, nil
 }
 
 func (m *Model) savePortfolio() {
@@ -464,6 +529,8 @@ func (m Model) View() string {
 		return m.removeConfirmView()
 	case modeChart:
 		return m.chartOverlayView()
+	case modeNewsDetail:
+		return m.newsDetailView()
 	default:
 		return m.mainView()
 	}
@@ -505,7 +572,7 @@ func (m Model) mainView() string {
 	}
 
 	footer := lipgloss.NewStyle().Foreground(theme.ColorMuted).
-		Render("  a add  d remove  ↵ chart  r refresh  ↑↓ select  J/K scroll news  Esc back")
+		Render("  a add  d remove  ↵ chart  n news  r refresh  ↑↓ select  J/K scroll news  Esc back")
 
 	return lipgloss.JoinVertical(lipgloss.Left, body, footer)
 }
@@ -592,6 +659,58 @@ func (m Model) chartOverlayView() string {
 	content := lipgloss.JoinVertical(lipgloss.Center, box, hint)
 
 	return lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, content,
+		lipgloss.WithWhitespaceForeground(theme.ColorBg))
+}
+
+func (m Model) newsDetailView() string {
+	var body string
+	switch {
+	case m.tickerNewsLoading:
+		body = lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("Loading news…")
+	case m.tickerNewsErr != "":
+		body = lipgloss.NewStyle().Foreground(theme.ColorRed).Render("Error: " + m.tickerNewsErr)
+	case len(m.tickerNews) == 0:
+		body = lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("No news found.")
+	default:
+		item := m.tickerNews[m.tickerNewsScroll]
+		sym := m.Holdings[m.selectedIdx].Symbol
+
+		title := lipgloss.NewStyle().Foreground(theme.ColorPurple).Bold(true).Render("— " + sym + " News —")
+		divider := lipgloss.NewStyle().Foreground(theme.ColorBorder).Render(strings.Repeat("─", 50))
+
+		headline := lipgloss.NewStyle().Foreground(theme.ColorText).Bold(true).Render(item.Headline)
+		meta := lipgloss.NewStyle().Foreground(theme.ColorMuted).Render(item.Source + " · " + timeAgo(item.Datetime))
+
+		summary := lipgloss.NewStyle().Foreground(theme.ColorText).
+			Width(48).Render(truncate(item.Summary, 300))
+
+		nav := ""
+		if len(m.tickerNews) > 1 {
+			nav = lipgloss.NewStyle().Foreground(theme.ColorMuted).Render(
+				fmt.Sprintf("J/K next/prev  (%d/%d)  ", m.tickerNewsScroll+1, len(m.tickerNews)))
+		}
+		hint := lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("Esc / n close")
+
+		body = lipgloss.JoinVertical(lipgloss.Left,
+			title,
+			divider,
+			"",
+			headline,
+			meta,
+			"",
+			summary,
+			"",
+			nav+hint,
+		)
+	}
+
+	box := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.ColorPurple).
+		Padding(2, 3).
+		Render(body)
+
+	return lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, box,
 		lipgloss.WithWhitespaceForeground(theme.ColorBg))
 }
 
