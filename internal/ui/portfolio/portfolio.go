@@ -2,6 +2,8 @@ package portfolio
 
 import (
 	"fmt"
+	"math"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -19,8 +21,13 @@ const (
 	modeBrowse mode = iota
 	modeAdd
 	modeRemove
+	modeChart
 )
 
+// Model is the consolidated portfolio hub: allocation donut + positions on
+// the left, and a sentiment/alerts/news window on the right. Adding a
+// position and viewing a ticker's price history both open as small
+// centered overlays rather than separate screens.
 type Model struct {
 	Holdings    []models.Holding
 	Chart       chart.Model
@@ -28,14 +35,19 @@ type Model struct {
 	mode        mode
 	selectedIdx int
 
-	// Add form fields
-	addSymbol string
-	addShares string
-	addPrice  string
-	addStep   int
+	quotes        map[string]models.Quote
+	quotesLoading bool
 
-	// Remove confirmation
-	removeConfirm string
+	news        []models.NewsItem
+	newsLoading bool
+	newsErr     string
+	newsScroll  int
+	sentiment   data.SentimentSummary
+
+	form addForm
+
+	chartSymbol string
+	chartRange  models.TimeRange
 
 	Width  int
 	Height int
@@ -43,38 +55,56 @@ type Model struct {
 
 func New() Model {
 	return Model{
-		Chart:    chart.New(),
-		provider: data.NewYahoo(),
+		Chart:      chart.New(),
+		provider:   data.NewYahoo(),
+		quotes:     make(map[string]models.Quote),
+		chartRange: models.Range24H,
 	}
 }
 
+// InForm reports whether the hub is currently showing a modal/overlay
+// (add form, remove confirm, or chart), so the parent app knows not to
+// treat Esc as "navigate back to the home screen".
 func (m Model) InForm() bool {
 	return m.mode != modeBrowse
 }
 
 func (m Model) Init() tea.Cmd {
-	return m.fetchQuotes()
+	_, cmd := m.RefreshMarketData()
+	return cmd
 }
 
-func (m Model) fetchQuotes() tea.Cmd {
-	symbols := make([]string, len(m.Holdings))
+// RefreshMarketData kicks off a live quote + news fetch for the current
+// holdings. Safe to call at app startup and again when entering the
+// portfolio screen.
+func (m Model) RefreshMarketData() (Model, tea.Cmd) {
+	if len(m.Holdings) == 0 {
+		return m, nil
+	}
+	m.quotesLoading = true
+	m.newsLoading = true
+	return m, tea.Batch(m.fetchQuotes(), m.fetchNews())
+}
+
+// HandleAsyncMsg applies quote/news/history results even when the portfolio
+// screen is not active (e.g. startup fetch while still on the home screen).
+// Returns handled=false for unrelated messages so the caller can keep routing.
+func (m Model) HandleAsyncMsg(msg tea.Msg) (Model, tea.Cmd, bool) {
+	switch msg.(type) {
+	case quotesMsg, newsMsg, historyMsg:
+		m, cmd := m.Update(msg)
+		return m, cmd, true
+	default:
+		return m, nil, false
+	}
+}
+
+func (m Model) symbols() []string {
+	out := make([]string, len(m.Holdings))
 	for i, h := range m.Holdings {
-		symbols[i] = h.Symbol
+		out[i] = h.Symbol
 	}
-	if len(symbols) == 0 {
-		return nil
-	}
-	return func() tea.Msg {
-		quotes, err := m.provider.GetQuotes(symbols)
-		return quotesMsg{quotes: quotes, err: err}
-	}
-}
-
-func (m Model) fetchHistory(symbol string) tea.Cmd {
-	return func() tea.Msg {
-		candles, err := m.provider.GetHistory(symbol, models.Range24H)
-		return historyMsg{symbol: symbol, data: candles, err: err}
-	}
+	return out
 }
 
 type quotesMsg struct {
@@ -82,10 +112,48 @@ type quotesMsg struct {
 	err    error
 }
 
+type newsMsg struct {
+	news []models.NewsItem
+	err  error
+}
+
 type historyMsg struct {
 	symbol string
+	tr     models.TimeRange
 	data   []models.Candle
 	err    error
+}
+
+func (m Model) fetchQuotes() tea.Cmd {
+	symbols := m.symbols()
+	if len(symbols) == 0 {
+		return nil
+	}
+	provider := m.provider
+	return func() tea.Msg {
+		quotes, err := provider.GetQuotes(symbols)
+		return quotesMsg{quotes: quotes, err: err}
+	}
+}
+
+func (m Model) fetchNews() tea.Cmd {
+	symbols := m.symbols()
+	if len(symbols) == 0 {
+		return nil
+	}
+	provider := m.provider
+	return func() tea.Msg {
+		news, err := provider.FetchAllNews(symbols)
+		return newsMsg{news: news, err: err}
+	}
+}
+
+func (m Model) fetchHistory(symbol string, tr models.TimeRange) tea.Cmd {
+	provider := m.provider
+	return func() tea.Msg {
+		candles, err := provider.GetHistory(symbol, tr)
+		return historyMsg{symbol: symbol, tr: tr, data: candles, err: err}
+	}
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
@@ -93,169 +161,189 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.Width = msg.Width
 		m.Height = msg.Height
-		m.Chart.SetSize(msg.Width-msg.Width/3-4, msg.Height-4)
+		chartW := clampInt(m.Width-8, 20, 96)
+		chartH := clampInt(m.Height-8, 10, 34)
+		m.Chart.SetSize(chartW, chartH)
+		return m, nil
 
 	case tea.KeyMsg:
-		if m.mode == modeAdd {
+		switch m.mode {
+		case modeAdd:
 			return m.updateAddForm(msg)
-		}
-		if m.mode == modeRemove {
+		case modeRemove:
 			return m.updateRemoveConfirm(msg)
-		}
-
-		switch msg.String() {
-		case "escape", "esc":
-			return m, nil // parent handles this
-
-		case "q":
-			return m, nil
-
-		case "a":
-			m.mode = modeAdd
-			m.addSymbol = ""
-			m.addShares = ""
-			m.addPrice = ""
-			m.addStep = 0
-			return m, nil
-
-		case "d":
-			if len(m.Holdings) > 0 {
-				m.mode = modeRemove
-				m.removeConfirm = ""
-				m.selectedIdx = 0
-			}
-			return m, nil
-
-		case "j", "down":
-			if m.selectedIdx < len(m.Holdings)-1 {
-				m.selectedIdx++
-			}
-			return m, m.fetchHistory(m.Holdings[m.selectedIdx].Symbol)
-
-		case "k", "up":
-			if m.selectedIdx > 0 {
-				m.selectedIdx--
-			}
-			return m, m.fetchHistory(m.Holdings[m.selectedIdx].Symbol)
-
-		case "tab":
-			m.Chart.CycleChartType()
-			return m, nil
+		case modeChart:
+			return m.updateChartOverlay(msg)
+		default:
+			return m.updateBrowse(msg)
 		}
 
 	case quotesMsg:
+		m.quotesLoading = false
 		if msg.err == nil {
-			m.applyQuotes(msg.quotes)
+			for _, q := range msg.quotes {
+				m.quotes[q.Symbol] = q
+			}
 		}
+		return m, nil
+
+	case newsMsg:
+		m.newsLoading = false
+		if msg.err != nil {
+			m.newsErr = msg.err.Error()
+		} else {
+			m.news = msg.news
+			m.newsErr = ""
+			sort.Slice(m.news, func(i, j int) bool { return m.news[i].Datetime > m.news[j].Datetime })
+			m.sentiment = data.ScoreSentiment(m.news)
+		}
+		return m, nil
 
 	case historyMsg:
-		if msg.err == nil && msg.data != nil {
-			// Store in chart
+		if m.mode == modeChart && msg.symbol == m.chartSymbol {
+			if msg.err != nil {
+				m.Chart.SetError(msg.err)
+			} else {
+				m.Chart.SetData(msg.symbol, msg.tr, msg.data)
+			}
 		}
+		return m, nil
 	}
 
-	// Route chart updates
+	// Anything else (e.g. text-input cursor blink ticks) goes to whichever
+	// sub-component currently owns keyboard focus.
+	if m.mode == modeAdd {
+		var cmd tea.Cmd
+		m.form, cmd, _, _ = m.form.Update(msg)
+		return m, cmd
+	}
+
 	var cmd tea.Cmd
 	m.Chart, cmd = m.Chart.Update(msg)
 	return m, cmd
 }
 
-func (m Model) updateAddForm(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) updateBrowse(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch msg.String() {
 	case "escape", "esc":
+		return m, nil // parent app handles navigating back home
+
+	case "a":
+		form, cmd := newAddForm()
+		m.mode = modeAdd
+		m.form = form
+		return m, cmd
+
+	case "d":
+		if len(m.Holdings) > 0 {
+			m.mode = modeRemove
+		}
+		return m, nil
+
+	case "j", "down":
+		if m.selectedIdx < len(m.Holdings)-1 {
+			m.selectedIdx++
+		}
+		return m, nil
+
+	case "k", "up":
+		if m.selectedIdx > 0 {
+			m.selectedIdx--
+		}
+		return m, nil
+
+	case "J":
+		if m.newsScroll < len(m.news)-1 {
+			m.newsScroll++
+		}
+		return m, nil
+
+	case "K":
+		if m.newsScroll > 0 {
+			m.newsScroll--
+		}
+		return m, nil
+
+	case "enter":
+		if len(m.Holdings) == 0 {
+			return m, nil
+		}
+		sym := m.Holdings[m.selectedIdx].Symbol
+		m.mode = modeChart
+		m.chartSymbol = sym
+		m.chartRange = models.Range24H
+		m.Chart.SetLoading(true)
+		return m, m.fetchHistory(sym, m.chartRange)
+
+	case "r":
+		return m.RefreshMarketData()
+	}
+	return m, nil
+}
+
+func (m Model) updateAddForm(msg tea.KeyMsg) (Model, tea.Cmd) {
+	var cmd tea.Cmd
+	var submitted, cancelled bool
+	m.form, cmd, submitted, cancelled = m.form.Update(msg)
+
+	if cancelled {
 		m.mode = modeBrowse
 		return m, nil
-	case "enter":
-		switch m.addStep {
-		case 0:
-			if m.addSymbol != "" {
-				m.addStep = 1
-			}
-		case 1:
-			if m.addShares != "" {
-				m.addStep = 2
-			}
-		case 2:
-			if m.addPrice != "" {
-				shares, _ := strconv.ParseFloat(m.addShares, 64)
-				price, _ := strconv.ParseFloat(m.addPrice, 64)
-				m.Holdings = append(m.Holdings, models.Holding{
-					Symbol:   strings.ToUpper(m.addSymbol),
-					Shares:   shares,
-					AvgPrice: price,
-				})
-				m.savePortfolio()
-				m.mode = modeBrowse
-			}
-		}
-		return m, nil
-	case "backspace":
-		switch m.addStep {
-		case 0:
-			if len(m.addSymbol) > 0 {
-				m.addSymbol = m.addSymbol[:len(m.addSymbol)-1]
-			}
-		case 1:
-			if len(m.addShares) > 0 {
-				m.addShares = m.addShares[:len(m.addShares)-1]
-			}
-		case 2:
-			if len(m.addPrice) > 0 {
-				m.addPrice = m.addPrice[:len(m.addPrice)-1]
-			}
-		}
-		return m, nil
-	default:
-		ch := msg.String()
-		if len(ch) == 1 {
-			switch m.addStep {
-			case 0:
-				if (ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || ch == "." {
-					m.addSymbol += strings.ToUpper(ch)
-				}
-			case 1:
-				if ch >= "0" && ch <= "9" || ch == "." {
-					m.addShares += ch
-				}
-			case 2:
-				if ch >= "0" && ch <= "9" || ch == "." {
-					m.addPrice += ch
-				}
-			}
-		}
-		return m, nil
 	}
+	if submitted {
+		h, ok := m.form.validate()
+		if ok {
+			m.Holdings = append(m.Holdings, h)
+			m.savePortfolio()
+			m.mode = modeBrowse
+			return m.RefreshMarketData()
+		}
+	}
+	return m, cmd
 }
 
 func (m Model) updateRemoveConfirm(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch msg.String() {
-	case "escape", "esc":
+	case "escape", "esc", "n":
 		m.mode = modeBrowse
 		return m, nil
-	case "enter":
+	case "enter", "y":
 		if m.selectedIdx >= 0 && m.selectedIdx < len(m.Holdings) {
+			removed := m.Holdings[m.selectedIdx].Symbol
 			m.Holdings = append(m.Holdings[:m.selectedIdx], m.Holdings[m.selectedIdx+1:]...)
+			delete(m.quotes, removed)
+			if m.selectedIdx >= len(m.Holdings) && m.selectedIdx > 0 {
+				m.selectedIdx--
+			}
 			m.savePortfolio()
 		}
 		m.mode = modeBrowse
 		return m, nil
-	case "y":
-		if m.selectedIdx >= 0 && m.selectedIdx < len(m.Holdings) {
-			m.Holdings = append(m.Holdings[:m.selectedIdx], m.Holdings[m.selectedIdx+1:]...)
-			m.savePortfolio()
-		}
+	}
+	return m, nil
+}
+
+func (m Model) updateChartOverlay(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch msg.String() {
+	case "escape", "esc", "enter", "q":
 		m.mode = modeBrowse
 		return m, nil
-	case "n":
-		m.mode = modeBrowse
+	case "tab":
+		m.Chart.CycleChartType()
 		return m, nil
+	case "1":
+		m.chartRange = models.Range1H
+	case "2":
+		m.chartRange = models.Range24H
+	case "3":
+		m.chartRange = models.Range7D
+	case "4":
+		m.chartRange = models.Range30D
 	default:
 		return m, nil
 	}
-}
-
-func (m *Model) applyQuotes(quotes []models.Quote) {
-	// TODO: store quotes for live price display
+	m.Chart.SetLoading(true)
+	return m, m.fetchHistory(m.chartSymbol, m.chartRange)
 }
 
 func (m *Model) savePortfolio() {
@@ -263,135 +351,209 @@ func (m *Model) savePortfolio() {
 	data.SavePortfolio(data.PortfolioPath, p)
 }
 
+// positionRow is one holding's derived, display-ready metrics.
+type positionRow struct {
+	symbol   string
+	price    float64
+	hasQuote bool
+	value    float64
+	weight   float64
+	plPct    float64
+	hasPL    bool
+	currency string
+}
+
+func (m Model) computePositions() (rows []positionRow, totalValue float64) {
+	for _, h := range m.Holdings {
+		price := h.AvgPrice
+		hasQuote := false
+		if q, ok := m.quotes[h.Symbol]; ok && q.Price > 0 {
+			price = q.Price
+			hasQuote = true
+		}
+
+		value := h.Shares * price
+		plPct := 0.0
+		hasPL := false
+		if hasQuote && h.AvgPrice > 0 {
+			plPct = (price - h.AvgPrice) / h.AvgPrice * 100
+			hasPL = true
+		}
+
+		currency := h.Currency
+		if currency == "" {
+			currency = detectCurrency(h.Symbol)
+		}
+
+		rows = append(rows, positionRow{
+			symbol:   h.Symbol,
+			price:    price,
+			hasQuote: hasQuote,
+			value:    value,
+			plPct:    plPct,
+			hasPL:    hasPL,
+			currency: currency,
+		})
+		totalValue += value
+	}
+
+	for i := range rows {
+		if totalValue > 0 {
+			rows[i].weight = rows[i].value / totalValue * 100
+		}
+	}
+	return rows, totalValue
+}
+
+func renderPortfolioHeader(totalValue float64, currency string) string {
+	label := lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("PORTFOLIO VALUE  ")
+	value := lipgloss.NewStyle().Foreground(theme.ColorText).Bold(true).Render(formatMoney(totalValue, currency))
+	return label + value
+}
+
+func (m Model) positionsTableView(rows []positionRow) string {
+	if len(rows) == 0 {
+		return ""
+	}
+
+	header := lipgloss.NewStyle().Foreground(theme.ColorMuted).
+		Render(fmt.Sprintf("  %-8s %12s %14s %8s %9s", "SYMBOL", "PRICE", "VALUE", "WEIGHT", "P/L"))
+
+	lines := []string{header}
+	for i, row := range rows {
+		marker := "  "
+		symStyle := lipgloss.NewStyle().Foreground(theme.ColorText)
+		if i == m.selectedIdx {
+			marker = "▸ "
+			symStyle = symStyle.Foreground(theme.ColorPurple).Bold(true)
+		}
+
+		priceColor := theme.ColorText
+		if !row.hasQuote {
+			priceColor = theme.ColorMuted
+		}
+		priceStr := lipgloss.NewStyle().Foreground(priceColor).Render(fmt.Sprintf("%12s", formatMoney(row.price, row.currency)))
+		valueStr := lipgloss.NewStyle().Foreground(theme.ColorText).Render(fmt.Sprintf("%14s", formatMoney(row.value, row.currency)))
+		weightStr := lipgloss.NewStyle().Foreground(theme.ColorMuted).Render(fmt.Sprintf("%7.1f%%", row.weight))
+
+		var plStr string
+		switch {
+		case m.quotesLoading && !row.hasPL:
+			plStr = lipgloss.NewStyle().Foreground(theme.ColorMuted).Render(fmt.Sprintf("%9s", "…"))
+		case !row.hasPL:
+			plStr = lipgloss.NewStyle().Foreground(theme.ColorMuted).Render(fmt.Sprintf("%9s", "—"))
+		default:
+			plStyle := theme.PositiveChange
+			if row.plPct < 0 {
+				plStyle = theme.NegativeChange
+			}
+			plStr = plStyle.Render(fmt.Sprintf("%+8.2f%%", row.plPct))
+		}
+
+		sym := symStyle.Render(fmt.Sprintf("%-8s", truncate(row.symbol, 8)))
+		lines = append(lines, fmt.Sprintf("%s%s %s %s %s %s", marker, sym, priceStr, valueStr, weightStr, plStr))
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+}
+
 func (m Model) View() string {
-	if m.mode == modeAdd {
+	switch m.mode {
+	case modeAdd:
 		return m.addFormView()
-	}
-	if m.mode == modeRemove {
+	case modeRemove:
 		return m.removeConfirmView()
+	case modeChart:
+		return m.chartOverlayView()
+	default:
+		return m.mainView()
 	}
-	return m.mainView()
 }
 
 func (m Model) mainView() string {
 	if len(m.Holdings) == 0 {
-		return lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center,
-			"No holdings. Press 'a' to add one.",
-			lipgloss.WithWhitespaceForeground(theme.ColorMuted))
-	}
-
-	total := 0.0
-	for _, h := range m.Holdings {
-		total += h.Shares * h.AvgPrice
-	}
-
-	var rows []string
-	colors := []lipgloss.Color{
-		theme.ColorPurple, theme.ColorFoam, theme.ColorYellow, theme.ColorRed,
-		theme.ColorGreen, theme.ColorText, theme.ColorMuted,
-	}
-
-	for i, h := range m.Holdings {
-		pct := (h.Shares * h.AvgPrice) / total * 100
-		barColor := colors[i%len(colors)]
-
-		barLen := int(pct / 5)
-		if barLen < 1 {
-			barLen = 1
-		}
-		if barLen > 20 {
-			barLen = 20
-		}
-
-		barChars := ""
-		for j := 0; j < barLen; j++ {
-			barChars += "█"
-		}
-
-		prefix := "  "
-		if i == m.selectedIdx {
-			prefix = "\u25b6 "
-		}
-
-		bar := lipgloss.NewStyle().Foreground(barColor).Render(barChars)
-		symbol := lipgloss.NewStyle().Foreground(theme.ColorText).Render("  " + h.Symbol + "  ")
-		pctStr := lipgloss.NewStyle().Foreground(theme.ColorText).Render(fmtPct(pct))
-
-		row := fmt.Sprintf("%s%s%s%s", prefix, bar, symbol, pctStr)
-		rows = append(rows, row)
-	}
-
-	sidebar := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	sidebar = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(theme.ColorBorder).
-		Width(m.Width/3).
-		Render(lipgloss.JoinVertical(lipgloss.Left,
-			lipgloss.NewStyle().Foreground(theme.ColorPurple).Bold(true).Render(" Positions "),
+		empty := lipgloss.JoinVertical(lipgloss.Center,
+			lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("No holdings yet."),
 			"",
-			sidebar,
-		))
+			lipgloss.NewStyle().Foreground(theme.ColorPurple).Bold(true).Render("Press 'a' to add your first position"),
+		)
+		return lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, empty,
+			lipgloss.WithWhitespaceForeground(theme.ColorBg))
+	}
 
-	chartView := lipgloss.NewStyle().
+	bodyH := max(m.Height-2, 10)
+	rows, totalValue := m.computePositions()
+
+	// The positions table needs roughly 53 content columns; below that a
+	// side-by-side layout would squeeze both panes into an unreadable,
+	// wrapping mess. Stack the insights window below the allocation pane
+	// instead once the terminal gets too narrow for two comfortable columns.
+	const minLeftW, minRightW = 62, 38
+
+	var body string
+	if m.Width >= minLeftW+minRightW+3 {
+		leftW := clampInt(m.Width*3/5, minLeftW, m.Width-minRightW-3)
+		rightW := m.Width - leftW - 3
+		leftPane := m.leftPaneView(rows, totalValue, leftW-2, bodyH)
+		rightPane := m.insightsView(rightW-2, bodyH)
+		body = lipgloss.JoinHorizontal(lipgloss.Top, leftPane, " ", rightPane)
+	} else {
+		topH := clampInt(bodyH*3/5, 14, bodyH-8)
+		botH := max(bodyH-topH-1, 8)
+		leftPane := m.leftPaneView(rows, totalValue, m.Width-2, topH)
+		rightPane := m.insightsView(m.Width-2, botH)
+		body = lipgloss.JoinVertical(lipgloss.Left, leftPane, rightPane)
+	}
+
+	footer := lipgloss.NewStyle().Foreground(theme.ColorMuted).
+		Render("  a add  d remove  ↵ chart  r refresh  ↑↓ select  J/K scroll news  Esc back")
+
+	return lipgloss.JoinVertical(lipgloss.Left, body, footer)
+}
+
+func (m Model) leftPaneView(rows []positionRow, totalValue float64, width, height int) string {
+	primaryCurrency := "USD"
+	if len(rows) > 0 && rows[0].currency != "" {
+		primaryCurrency = rows[0].currency
+	}
+	header := renderPortfolioHeader(totalValue, primaryCurrency)
+	if m.quotesLoading {
+		header += lipgloss.NewStyle().Foreground(theme.ColorMuted).Italic(true).Render("  refreshing…")
+	}
+
+	innerW := width - 4 // account for Padding(1, 2)
+	allocH := clampInt(height*2/5, 8, 17)
+	alloc := allocationView(m.Holdings, m.quotes, innerW, allocH)
+	alloc = lipgloss.PlaceHorizontal(innerW, lipgloss.Center, alloc)
+
+	table := m.positionsTableView(rows)
+
+	content := lipgloss.JoinVertical(lipgloss.Left,
+		header,
+		"",
+		alloc,
+		"",
+		sectionHeader("POSITIONS"),
+		table,
+	)
+
+	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(theme.ColorBorder).
-		Width(m.Width - m.Width/3 - 2).
-		Height(m.Height - 4).
-		Render(lipgloss.Place(
-			m.Width-m.Width/3-4, m.Height-6,
-			lipgloss.Center, lipgloss.Center,
-			"Select a ticker to view chart",
-			lipgloss.WithWhitespaceForeground(theme.ColorMuted),
-		))
-
-	return lipgloss.JoinVertical(lipgloss.Left,
-		lipgloss.JoinHorizontal(lipgloss.Top, sidebar, chartView),
-		lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("  a add  d remove  \u2191\u2193 select  Tab chart  Esc back"),
-	)
+		Padding(1, 2).
+		Width(width).
+		Height(height).
+		Render(content)
 }
 
 func (m Model) addFormView() string {
-	var fields []string
-	switch m.addStep {
-	case 0:
-		fields = []string{
-			lipgloss.NewStyle().Foreground(theme.ColorPurple).Bold(true).Render("Add Position"),
-			"",
-			lipgloss.NewStyle().Foreground(theme.ColorText).Render("Symbol: " + m.addSymbol + "\u258c"),
-			"",
-			lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("Type ticker symbol and press Enter"),
-		}
-	case 1:
-		fields = []string{
-			lipgloss.NewStyle().Foreground(theme.ColorPurple).Bold(true).Render("Add Position"),
-			"",
-			lipgloss.NewStyle().Foreground(theme.ColorText).Render("Symbol: " + m.addSymbol),
-			lipgloss.NewStyle().Foreground(theme.ColorText).Render("Shares: " + m.addShares + "\u258c"),
-			"",
-			lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("Enter number of shares"),
-		}
-	case 2:
-		fields = []string{
-			lipgloss.NewStyle().Foreground(theme.ColorPurple).Bold(true).Render("Add Position"),
-			"",
-			lipgloss.NewStyle().Foreground(theme.ColorText).Render("Symbol: " + m.addSymbol),
-			lipgloss.NewStyle().Foreground(theme.ColorText).Render("Shares: " + m.addShares),
-			lipgloss.NewStyle().Foreground(theme.ColorText).Render("Avg Price: $" + m.addPrice + "\u258c"),
-			"",
-			lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("Enter average price, then Enter to confirm"),
-		}
-	}
+	box := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.ColorPurple).
+		Padding(1, 3).
+		Render(m.form.View())
 
-	content := lipgloss.JoinVertical(lipgloss.Left, fields...)
-
-	return lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center,
-		lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(theme.ColorBorder).
-			Padding(1, 3).
-			Render(content),
-		lipgloss.WithWhitespaceForeground(theme.ColorBg),
-	)
+	return lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, box,
+		lipgloss.WithWhitespaceForeground(theme.ColorBg))
 }
 
 func (m Model) removeConfirmView() string {
@@ -408,16 +570,90 @@ func (m Model) removeConfirmView() string {
 		lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("  y (yes)  n (no)  Esc cancel"),
 	)
 
-	return lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center,
-		lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(theme.ColorRed).
-			Padding(1, 3).
-			Render(content),
-		lipgloss.WithWhitespaceForeground(theme.ColorBg),
-	)
+	box := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.ColorRed).
+		Padding(1, 3).
+		Render(content)
+
+	return lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, box,
+		lipgloss.WithWhitespaceForeground(theme.ColorBg))
 }
 
-func fmtPct(pct float64) string {
-	return fmt.Sprintf("%.1f%%", pct)
+func (m Model) chartOverlayView() string {
+	box := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.ColorPurple).
+		Render(m.Chart.View())
+
+	hint := lipgloss.NewStyle().Foreground(theme.ColorMuted).
+		Render("1/2/3/4 range  Tab chart type  Esc close")
+
+	content := lipgloss.JoinVertical(lipgloss.Center, box, hint)
+
+	return lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, content,
+		lipgloss.WithWhitespaceForeground(theme.ColorBg))
+}
+
+func currencySymbol(currency string) string {
+	switch currency {
+	case "USD":
+		return "$"
+	case "CAD":
+		return "C$"
+	case "INR":
+		return "₹"
+	case "GBP":
+		return "£"
+	case "EUR":
+		return "€"
+	case "JPY":
+		return "¥"
+	case "CNY":
+		return "CN¥"
+	case "AUD":
+		return "A$"
+	case "CHF":
+		return "CHF"
+	case "NZD":
+		return "NZ$"
+	case "KRW":
+		return "₩"
+	case "BRL":
+		return "R$"
+	default:
+		return ""
+	}
+}
+
+// formatMoney renders an amount with thousands separators and its currency
+// symbol, e.g. "$12,345.67", "₹1,204.10", or "-C$500.00". When currency is
+// empty no symbol is prefixed.
+func formatMoney(v float64, currency string) string {
+	symbol := currencySymbol(currency)
+	neg := v < 0
+	if neg {
+		v = -v
+	}
+	whole := int64(v)
+	frac := int(math.Round((v - float64(whole)) * 100))
+	if frac == 100 {
+		whole++
+		frac = 0
+	}
+
+	ws := strconv.FormatInt(whole, 10)
+	var grouped strings.Builder
+	for i, d := range ws {
+		if i > 0 && (len(ws)-i)%3 == 0 {
+			grouped.WriteByte(',')
+		}
+		grouped.WriteRune(d)
+	}
+
+	sign := ""
+	if neg {
+		sign = "-"
+	}
+	return fmt.Sprintf("%s%s%s.%02d", sign, symbol, grouped.String(), frac)
 }

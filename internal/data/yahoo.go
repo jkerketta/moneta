@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/jkerketta/stocktui/internal/models"
@@ -20,58 +19,96 @@ func NewYahoo() *Yahoo {
 func (y *Yahoo) Name() string { return "Yahoo Finance" }
 
 func (y *Yahoo) GetQuotes(symbols []string) ([]models.Quote, error) {
-	baseURL := "https://query1.finance.yahoo.com/v7/finance/quote"
-	params := url.Values{}
-	params.Set("symbols", strings.Join(symbols, ","))
-	params.Set("fields", "symbol,regularMarketPrice,regularMarketChangePercent")
+	now := time.Now()
+	quotes := make([]models.Quote, 0, len(symbols))
+	var firstErr error
 
-	fullURL := baseURL + "?" + params.Encode()
+	for _, symbol := range symbols {
+		q, err := y.fetchQuoteFromChart(symbol)
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		q.LastUpdated = now
+		quotes = append(quotes, q)
+	}
+
+	if len(quotes) == 0 && firstErr != nil {
+		return nil, firstErr
+	}
+	return quotes, nil
+}
+
+// fetchQuoteFromChart uses the Yahoo chart endpoint (still publicly
+// reachable) because the dedicated /v7/finance/quote API now returns
+// Unauthorized for unauthenticated clients.
+func (y *Yahoo) fetchQuoteFromChart(symbol string) (models.Quote, error) {
+	baseURL := "https://query1.finance.yahoo.com/v8/finance/chart/" + url.PathEscape(symbol)
+	params := url.Values{}
+	params.Set("interval", "1d")
+	params.Set("range", "5d")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	body, err := fetch(ctx, fullURL, nil)
+	body, err := fetch(ctx, baseURL+"?"+params.Encode(), nil)
 	if err != nil {
-		return nil, err
+		return models.Quote{}, err
 	}
 
 	var resp struct {
-		QuoteResponse struct {
+		Chart struct {
 			Result []struct {
-				Symbol                     string  `json:"symbol"`
-				RegularMarketPrice         float64 `json:"regularMarketPrice"`
-				RegularMarketChangePercent float64 `json:"regularMarketChangePercent"`
+				Meta struct {
+					Symbol             string  `json:"symbol"`
+					RegularMarketPrice float64 `json:"regularMarketPrice"`
+					ChartPreviousClose float64 `json:"chartPreviousClose"`
+					PreviousClose      float64 `json:"previousClose"`
+				} `json:"meta"`
 			} `json:"result"`
 			Error *struct {
 				Code        string `json:"code"`
 				Description string `json:"description"`
 			} `json:"error"`
-		} `json:"quoteResponse"`
+		} `json:"chart"`
 	}
 
 	if err := json.Unmarshal(body, &resp); err != nil {
-		return nil, fmt.Errorf("parse error: %w", err)
+		return models.Quote{}, fmt.Errorf("parse error: %w", err)
+	}
+	if resp.Chart.Error != nil {
+		return models.Quote{}, fmt.Errorf("yahoo: %s", resp.Chart.Error.Description)
+	}
+	if len(resp.Chart.Result) == 0 {
+		return models.Quote{}, fmt.Errorf("no data for %s", symbol)
 	}
 
-	if resp.QuoteResponse.Error != nil {
-		return nil, fmt.Errorf("yahoo: %s", resp.QuoteResponse.Error.Description)
+	meta := resp.Chart.Result[0].Meta
+	if meta.RegularMarketPrice == 0 {
+		return models.Quote{}, fmt.Errorf("no price for %s", symbol)
 	}
 
-	now := time.Now()
-	quotes := make([]models.Quote, 0, len(resp.QuoteResponse.Result))
-	for _, r := range resp.QuoteResponse.Result {
-		if r.RegularMarketPrice == 0 {
-			continue
-		}
-		quotes = append(quotes, models.Quote{
-			Symbol:      r.Symbol,
-			Price:       r.RegularMarketPrice,
-			ChangePct:   r.RegularMarketChangePercent,
-			LastUpdated: now,
-		})
+	prev := meta.ChartPreviousClose
+	if prev == 0 {
+		prev = meta.PreviousClose
+	}
+	changePct := 0.0
+	if prev > 0 {
+		changePct = (meta.RegularMarketPrice - prev) / prev * 100
 	}
 
-	return quotes, nil
+	sym := meta.Symbol
+	if sym == "" {
+		sym = symbol
+	}
+
+	return models.Quote{
+		Symbol:    sym,
+		Price:     meta.RegularMarketPrice,
+		ChangePct: changePct,
+	}, nil
 }
 
 func (y *Yahoo) GetHistory(symbol string, tr models.TimeRange) ([]models.Candle, error) {
@@ -197,4 +234,72 @@ func (y *Yahoo) GetHistory(symbol string, tr models.TimeRange) ([]models.Candle,
 	}
 
 	return candles, nil
+}
+
+// FetchNews fetches news for a single ticker symbol from Yahoo Finance's
+// search endpoint — no auth required.
+func (y *Yahoo) FetchNews(symbol string, count int) ([]models.NewsItem, error) {
+	baseURL := "https://query1.finance.yahoo.com/v1/finance/search"
+	params := url.Values{}
+	params.Set("q", symbol)
+	params.Set("quotesCount", "0")
+	params.Set("newsCount", fmt.Sprintf("%d", count))
+
+	fullURL := baseURL + "?" + params.Encode()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	body, err := fetch(ctx, fullURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp struct {
+		News []struct {
+			Title              string `json:"title"`
+			Link               string `json:"link"`
+			Publisher          string `json:"publisher"`
+			ProviderPublishTime int64  `json:"providerPublishTime"`
+			Summary            string `json:"summary"`
+		} `json:"news"`
+	}
+
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("yahoo news parse error: %w", err)
+	}
+
+	items := make([]models.NewsItem, 0, len(resp.News))
+	for _, n := range resp.News {
+		items = append(items, models.NewsItem{
+			Headline: n.Title,
+			URL:      n.Link,
+			Source:   n.Publisher,
+			Datetime: n.ProviderPublishTime,
+			Summary:  n.Summary,
+			Related:  symbol,
+		})
+	}
+	return items, nil
+}
+
+// FetchAllNews fetches news for multiple symbols with deduplication.
+func (y *Yahoo) FetchAllNews(symbols []string) ([]models.NewsItem, error) {
+	var all []models.NewsItem
+	seen := make(map[string]bool)
+
+	for _, sym := range symbols {
+		items, err := y.FetchNews(sym, 5)
+		if err != nil {
+			continue
+		}
+		for _, item := range items {
+			key := fmt.Sprintf("%s-%d-%s", item.Related, item.Datetime, item.Headline)
+			if !seen[key] {
+				seen[key] = true
+				all = append(all, item)
+			}
+		}
+	}
+	return all, nil
 }

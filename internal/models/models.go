@@ -17,6 +17,7 @@ type Holding struct {
 	Symbol   string  `yaml:"symbol"`
 	Shares   float64 `yaml:"shares"`
 	AvgPrice float64 `yaml:"avg_price"`
+	Currency string  `yaml:"currency"`
 }
 
 // Portfolio is the top-level portfolio YAML structure.
@@ -24,17 +25,14 @@ type Portfolio struct {
 	Holdings []Holding `yaml:"holdings"`
 }
 
-// NewsItem from Finnhub
+// NewsItem from Yahoo Finance search API.
 type NewsItem struct {
-	Category  string `json:"category"`
-	Datetime  int64  `json:"datetime"`
-	Headline  string `json:"headline"`
-	ID        int    `json:"id"`
-	Image     string `json:"image"`
-	Related   string `json:"related"`
-	Source    string `json:"source"`
-	Summary   string `json:"summary"`
-	URL       string `json:"url"`
+	Headline string `json:"title"`
+	URL      string `json:"link"`
+	Source   string `json:"publisher"`
+	Datetime int64  `json:"providerPublishTime"`
+	Summary  string `json:"summary"`
+	Related  string `json:"-"` // populated by the fetch code
 }
 
 // Quote represents a snapshot of an asset's price.
