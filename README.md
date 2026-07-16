@@ -3,12 +3,11 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/go-1.25+-00ADD8?style=flat-square&logo=go&logoColor=white">
-  <img src="https://img.shields.io/github/license/jkerketta/moneta?style=flat-square">
   <img src="https://img.shields.io/badge/platform-linux%20|%20macOS%20|%20windows-lightgrey?style=flat-square">
 </p>
 
 <p align="center">
-  <img src="screenshots/Screenshot%202026-07-16%20at%202.35.38 PM.png" width="80%">
+  <img src="screenshots/main.png" width="80%">
 </p>
 
 ---
@@ -17,10 +16,10 @@ A terminal-native portfolio tracker for developers who live in the command line.
 Track your holdings, browse real-time market news, check sentiment, and flip
 through interactive price charts — all without leaving your terminal.
 
-## ✨ Features
+## Features
 
 - **Portfolio tracking** — P&L, allocation donut, per-position performance
-- **Live market data** — S&amp;P 500, Dow, NASDAQ, crude oil, gold at a glance
+- **Live market data** — S&P 500, Dow, NASDAQ, crude oil, gold at a glance
 - **Market news + sentiment** — real-time headlines with bullish/bearish scoring
 - **Ticker-specific news** — press `n` on any holding for a headline detail card
 - **Interactive charts** — line, area, and candlestick views with sparklines
@@ -28,7 +27,11 @@ through interactive price charts — all without leaving your terminal.
 - **Zero API keys** — all data from Yahoo Finance's public endpoints
 - **Vim keys** — `j`/`k` navigation, modal overlays, keyboard-first design
 
-## ⚡ Quick Start
+<p align="center">
+  <img src="screenshots/two.png" width="80%">
+</p>
+
+## Quick Start
 
 ```bash
 git clone https://github.com/jkerketta/moneta.git
@@ -39,7 +42,7 @@ go build ./cmd/stock-tui
 
 Then add your first position with `a`.
 
-## 🎨 Themes
+## Themes
 
 Press `Change Theme` from the home menu to preview and switch between five
 themes — each with its own accent color and decorative icon set.
@@ -52,7 +55,7 @@ themes — each with its own accent color and decorative icon set.
 | Emerald Forest | `#4a9c5d` green | ☘ ❧ ✻ ✧ |
 | Midnight Ice | `#7ec8e3` blue | ❄ ✧ ◇ · |
 
-## ⌨️ Keybindings
+## Keybindings
 
 | Key | Action |
 |-----|--------|
@@ -70,11 +73,7 @@ themes — each with its own accent color and decorative icon set.
 | `Esc` | Close overlay / go back |
 | `q` | Quit |
 
-<p align="center">
-  <img src="screenshots/Screenshot%202026-07-16%20at%202.36.30 PM.png" width="80%">
-</p>
-
-## ⚙️ Configuration
+## Configuration
 
 Create a `portfolio.yaml` in the project root:
 
@@ -93,14 +92,14 @@ holdings:
 Or press `a` in the app to add positions interactively — the file is updated on
 every change.
 
-## ⚠️ Data Source
+## Data Source
 
 All market data comes from **Yahoo Finance's public endpoints**. No API key
 required, no rate limits to manage. The app respects the API and batches
 requests efficiently. For best results, avoid refreshing more than once
 every 5–10 seconds.
 
-## 🏗️ Development
+## Development
 
 ```bash
 go run ./cmd/stock-tui    # Run
@@ -108,6 +107,6 @@ go build ./cmd/stock-tui  # Build
 go vet ./...              # Lint
 ```
 
-## 📄 License
+## License
 
 [MIT](LICENSE)
