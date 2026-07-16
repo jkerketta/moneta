@@ -62,9 +62,6 @@ type Model struct {
 	chartSymbol string
 	chartRange  models.TimeRange
 
-	sortMode int
-	sortAsc  bool
-
 	Width  int
 	Height int
 }
@@ -76,8 +73,7 @@ func New() Model {
 		quotes:       make(map[string]models.Quote),
 		marketQuotes: make(map[string]models.Quote),
 		chartRange:   models.Range24H,
-		sortMode:     0,
-		sortAsc:      true,
+
 	}
 }
 
@@ -364,14 +360,6 @@ func (m Model) updateBrowse(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.Chart.SetLoading(true)
 		return m, m.fetchHistory(sym, m.chartRange)
 
-	case "s":
-		m.sortMode = (m.sortMode + 1) % 5
-		return m, nil
-
-	case "S":
-		m.sortAsc = !m.sortAsc
-		return m, nil
-
 	case "?":
 		m.mode = modeHelp
 		return m, nil
@@ -584,25 +572,6 @@ func (m Model) computePositions() (rows []positionRow, totalValue float64) {
 		}
 	}
 
-	sort.SliceStable(rows, func(i, j int) bool {
-		less := false
-		switch m.sortMode {
-		case 0:
-			less = rows[i].symbol < rows[j].symbol
-		case 1:
-			less = rows[i].price < rows[j].price
-		case 2:
-			less = rows[i].value < rows[j].value
-		case 3:
-			less = rows[i].weight < rows[j].weight
-		case 4:
-			less = rows[i].plPct < rows[j].plPct
-		}
-		if !m.sortAsc {
-			return !less
-		}
-		return less
-	})
 	return rows, totalValue
 }
 
@@ -710,7 +679,7 @@ func (m Model) mainView() string {
 	}
 
 	footer := lipgloss.NewStyle().Foreground(theme.ColorMuted).
-		Render("  a add  d remove  ↵ chart  n news  s sort  ? help  r refresh  ↑↓ select  ← → news  Esc back")
+		Render("  a add  d remove  ↵ chart  n news  ? help  r refresh  ↑↓ select  ← → news  Esc back")
 
 	return lipgloss.JoinVertical(lipgloss.Left, body, footer)
 }
@@ -732,23 +701,12 @@ func (m Model) leftPaneView(rows []positionRow, totalValue float64, width, heigh
 
 	table := m.positionsTableView(rows)
 
-	positionsHeader := sectionHeader("POSITIONS")
-	if m.sortMode > 0 || !m.sortAsc {
-		names := []string{"Symbol", "Price", "Value", "Weight", "P/L"}
-		dir := "\u2191" // up arrow
-		if !m.sortAsc {
-			dir = "\u2193" // down arrow
-		}
-		positionsHeader += lipgloss.NewStyle().Foreground(theme.ColorMuted).Italic(true).
-			Render(fmt.Sprintf("  [%s %s]", names[m.sortMode], dir))
-	}
-
 	content := lipgloss.JoinVertical(lipgloss.Left,
 		header,
 		"",
 		alloc,
 		"",
-		positionsHeader,
+		sectionHeader("POSITIONS"),
 		table,
 	)
 
