@@ -114,7 +114,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-const canvas = 90
+const canvas = 100
 
 func petalLine(char string, cols ...int) string {
 	var b strings.Builder
@@ -181,18 +181,20 @@ func composePetals(bannerStyle lipgloss.Style) string {
 
 	var stack []string
 
-	stack = append(stack, centerLine(petalStyle.Render(petalLine(t.Primary, 35, 69))))
-	stack = append(stack, centerLine(petalStyle.Render(petalLine(t.Secondary, 24, 57))))
+	stack = append(stack, centerLine(petalStyle.Render(petalLine(t.Primary, 6, 94))))
+	stack = append(stack, centerLine(petalStyle.Render(petalLine(t.Secondary, 28, 72))))
+	stack = append(stack, centerLine(petalStyle.Render(petalLine(t.Particle, 15, 55))))
 
 	stack = append(stack, centerLine(pad(lines[0], "", "")))
 	stack = append(stack, centerLine(pad(lines[1], t.Particle, "")))
 	stack = append(stack, centerLine(pad(lines[2], "", "")))
 	stack = append(stack, centerLine(pad(lines[3], "", t.Primary)))
-	stack = append(stack, centerLine(pad(lines[4], "", "")))
+	stack = append(stack, centerLine(pad(lines[4], t.Secondary, "")))
 	stack = append(stack, centerLine(pad(lines[5], "", "")))
 
-	stack = append(stack, centerLine(petalStyle.Render(petalLine(t.AccentIcon, 3, 36, 67))))
-	stack = append(stack, centerLine(petalStyle.Render(petalLine(t.Particle, 18, 52))))
+	stack = append(stack, centerLine(petalStyle.Render(petalLine(t.Primary, 8, 55, 92))))
+	stack = append(stack, centerLine(petalStyle.Render(petalLine(t.Particle, 22, 78))))
+	stack = append(stack, centerLine(petalStyle.Render(petalLine(t.Secondary, 14, 54))))
 
 	return lipgloss.JoinVertical(lipgloss.Left, stack...)
 }
