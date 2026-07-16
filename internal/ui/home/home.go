@@ -119,20 +119,29 @@ func composePetals(bannerStyle lipgloss.Style) string {
 		return l + bannerStyle.Render(s) + r
 	}
 
+	// fixWidth pads any line to exactly canvas columns so JoinVertical
+	// sees uniform widths and produces zero alignment shift.
+	fix := func(s string) string {
+		if w := lipgloss.Width(s); w < canvas {
+			return s + strings.Repeat(" ", canvas-w)
+		}
+		return s
+	}
+
 	var stack []string
 
-	stack = append(stack, petalStyle.Render(petalLine(0, 36, 70)))
-	stack = append(stack, petalStyle.Render(petalLine(25, 58)))
+	stack = append(stack, fix(petalStyle.Render(petalLine(0, 36, 70))))
+	stack = append(stack, fix(petalStyle.Render(petalLine(25, 58))))
 
-	stack = append(stack, pad(lines[0], false, false))
-	stack = append(stack, pad(lines[1], true, false))
-	stack = append(stack, pad(lines[2], false, false))
-	stack = append(stack, pad(lines[3], false, true))
-	stack = append(stack, pad(lines[4], false, false))
-	stack = append(stack, pad(lines[5], false, false))
+	stack = append(stack, fix(pad(lines[0], false, false)))
+	stack = append(stack, fix(pad(lines[1], true, false)))
+	stack = append(stack, fix(pad(lines[2], false, false)))
+	stack = append(stack, fix(pad(lines[3], false, true)))
+	stack = append(stack, fix(pad(lines[4], false, false)))
+	stack = append(stack, fix(pad(lines[5], false, false)))
 
-	stack = append(stack, petalStyle.Render(petalLine(3, 36, 67)))
-	stack = append(stack, petalStyle.Render(petalLine(18, 52)))
+	stack = append(stack, fix(petalStyle.Render(petalLine(3, 36, 67))))
+	stack = append(stack, fix(petalStyle.Render(petalLine(18, 52))))
 
 	return lipgloss.JoinVertical(lipgloss.Center, stack...)
 }
