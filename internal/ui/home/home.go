@@ -17,7 +17,7 @@ const banner = `
 ╚═╝     ╚═╝ ╚════╝ ╚═╝  ╚═══╝╚══════╝   ╚═╝   ╚═╝  ╚═╝
 `
 
-const tagline = "Your portfolio, priced in real time"
+const tagline = "Your portfolio, live in your terminal."
 
 type menuItem struct {
 	title string
