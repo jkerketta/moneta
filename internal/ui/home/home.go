@@ -69,7 +69,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 const canvas = 90
 
-func petalLine(cols ...int) string {
+func petalLine(char string, cols ...int) string {
 	var b strings.Builder
 	pos := 0
 	for _, col := range cols {
@@ -77,7 +77,7 @@ func petalLine(cols ...int) string {
 			b.WriteByte(' ')
 			pos++
 		}
-		b.WriteString("✿")
+		b.WriteString(char)
 		pos++
 	}
 	for pos < canvas {
@@ -103,15 +103,16 @@ func composePetals(bannerStyle lipgloss.Style) string {
 	}
 
 	// pad wraps a banner line with a 2-char left prefix and 2-char right
-	// suffix. Either side gets a petal when its bool is true.
-	pad := func(s string, left, right bool) string {
+	// suffix. The leftChar/rightChar, when non-empty, replace the space
+	// with a styled decoration character.
+	pad := func(s string, leftChar, rightChar string) string {
 		l := "  "
-		if left {
-			l = petalStyle.Render("✿") + " "
+		if leftChar != "" {
+			l = petalStyle.Render(leftChar) + " "
 		}
 		r := "  "
-		if right {
-			r = " " + petalStyle.Render("✿")
+		if rightChar != "" {
+			r = " " + petalStyle.Render(rightChar)
 		}
 		return l + bannerStyle.Render(s) + r
 	}
@@ -131,18 +132,18 @@ func composePetals(bannerStyle lipgloss.Style) string {
 
 	var stack []string
 
-	stack = append(stack, centerLine(petalStyle.Render(petalLine(35, 69))))
-	stack = append(stack, centerLine(petalStyle.Render(petalLine(24, 57))))
+	stack = append(stack, centerLine(petalStyle.Render(petalLine("✿", 35, 69))))
+	stack = append(stack, centerLine(petalStyle.Render(petalLine("❀", 24, 57))))
 
-	stack = append(stack, centerLine(pad(lines[0], false, false)))
-	stack = append(stack, centerLine(pad(lines[1], true, false)))
-	stack = append(stack, centerLine(pad(lines[2], false, false)))
-	stack = append(stack, centerLine(pad(lines[3], false, true)))
-	stack = append(stack, centerLine(pad(lines[4], false, false)))
-	stack = append(stack, centerLine(pad(lines[5], false, false)))
+	stack = append(stack, centerLine(pad(lines[0], "", "")))
+	stack = append(stack, centerLine(pad(lines[1], "·", "")))
+	stack = append(stack, centerLine(pad(lines[2], "", "")))
+	stack = append(stack, centerLine(pad(lines[3], "", "✿")))
+	stack = append(stack, centerLine(pad(lines[4], "", "")))
+	stack = append(stack, centerLine(pad(lines[5], "", "")))
 
-	stack = append(stack, centerLine(petalStyle.Render(petalLine(3, 36, 67))))
-	stack = append(stack, centerLine(petalStyle.Render(petalLine(18, 52))))
+	stack = append(stack, centerLine(petalStyle.Render(petalLine("✾", 3, 36, 67))))
+	stack = append(stack, centerLine(petalStyle.Render(petalLine("·", 18, 52))))
 
 	return lipgloss.JoinVertical(lipgloss.Left, stack...)
 }
