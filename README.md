@@ -1,161 +1,113 @@
-# stock-tui
-
-Real-time stock and cryptocurrency tracker for the terminal.
+<h1 align="center">moneta</h1>
+<p align="center"><em>Your portfolio, live in your terminal.</em></p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/go-1.25+-00ADD8?style=flat-square&logo=go&logoColor=white">
-  <img src="https://img.shields.io/github/license/ni5arga/stock-tui?style=flat-square">
-  <img src="https://img.shields.io/github/actions/workflow/status/ni5arga/stock-tui/build.yml?branch=main&style=flat-square">
+  <img src="https://img.shields.io/github/license/jkerketta/moneta?style=flat-square">
+  <img src="https://img.shields.io/badge/platform-linux%20|%20macOS%20|%20windows-lightgrey?style=flat-square">
 </p>
 
-![screenshot](screenshots/stock-tui.png)
+<p align="center">
+  <img src="screenshots/Screenshot%202026-07-16%20at%202.35.38 PM.png" width="80%">
+</p>
 
-## Features
+---
 
-- Real-time price tracking for stocks and cryptocurrencies
-- Multiple data providers (CoinGecko, Yahoo Finance, or combined)
-- Historical price charts with multiple time ranges
-- Sparkline visualization
-- Keyboard-driven interface with Vim-style navigation
+A terminal-native portfolio tracker for developers who live in the command line.
+Track your holdings, browse real-time market news, check sentiment, and flip
+through interactive price charts — all without leaving your terminal.
 
-## Installation
+## ✨ Features
 
-### Method 1: Build from Source (Recommended)
+- **Portfolio tracking** — P&L, allocation donut, per-position performance
+- **Live market data** — S&amp;P 500, Dow, NASDAQ, crude oil, gold at a glance
+- **Market news + sentiment** — real-time headlines with bullish/bearish scoring
+- **Ticker-specific news** — press `n` on any holding for a headline detail card
+- **Interactive charts** — line, area, and candlestick views with sparklines
+- **5 themes** — Rose Pine Moon, Golden Hour, Coral Reef, Emerald Forest, Midnight Ice
+- **Zero API keys** — all data from Yahoo Finance's public endpoints
+- **Vim keys** — `j`/`k` navigation, modal overlays, keyboard-first design
 
-This method ensures you have the configuration file and all assets immediately available.
+## ⚡ Quick Start
 
 ```bash
-git clone https://github.com/ni5arga/stock-tui.git
-cd stock-tui
+git clone https://github.com/jkerketta/moneta.git
+cd moneta
 go build ./cmd/stock-tui
 ./stock-tui
 ```
 
-### Method 2: Go Install (Quick Start)
+Then add your first position with `a`.
 
-Good for trying out the app with default settings.
+## 🎨 Themes
 
-```bash
-go install github.com/ni5arga/stock-tui/cmd/stock-tui@latest
-```
+Press `Change Theme` from the home menu to preview and switch between five
+themes — each with its own accent color and decorative icon set.
 
-## Configuration
+| Theme | Accent | Icons |
+|-------|--------|-------|
+| Rose Pine Moon | `#c4a7e7` purple | ✿ ❀ ✾ · |
+| Golden Hour | `#f6c177` yellow | ★ ☽ ✧ ✦ |
+| Coral Reef | `#e8736a` coral | ❂ ✧ ▹ · |
+| Emerald Forest | `#4a9c5d` green | ☘ ❧ ✻ ✧ |
+| Midnight Ice | `#7ec8e3` blue | ❄ ✧ ◇ · |
 
-The app looks for configuration in the following order:
-
-1. **CLI Flag**: `--config` / `-c` (e.g., `stock-tui -c /path/to/conf.toml`)
-2. **Environment Variable**: `STOCK_TUI_CONFIG`
-3. **User Config Directory** (XDG supported):
-   - Linux/Mac: `~/.config/stock-tui/config.toml`
-   - Windows: `%APPDATA%\stock-tui\config.toml`
-4. **Current Directory**: `./config.toml`
-
-A sample `config.toml` is included in the repo. To use it system-wide:
-
-```bash
-mkdir -p ~/.config/stock-tui
-curl -sL https://raw.githubusercontent.com/ni5arga/stock-tui/main/config.toml > ~/.config/stock-tui/config.toml
-```
-
-**Example config.toml:**
-
-```toml
-# Data provider: "simulator", "coingecko", "yahoo", or "multi" (default)
-provider = "multi"
-
-# Refresh interval
-refresh_interval = "5s"
-
-# Default chart range: "1H", "24H", "7D", "30D"
-default_range = "24H"
-
-# Watchlist symbols
-# Crypto: use -USD suffix (BTC-USD, ETH-USD)
-# Stocks: use ticker (AAPL, GOOGL)
-symbols = [
-    "BTC-USD",
-    "ETH-USD",
-    "SOL-USD",
-    "AAPL",
-    "GOOGL",
-    "TSLA",
-    "MSFT",
-    "NVDA"
-]
-```
-
-## Keybindings
+## ⌨️ Keybindings
 
 | Key | Action |
 |-----|--------|
-| `j` / `↓` | Move down in watchlist |
-| `k` / `↑` | Move up in watchlist |
-| `/` | Search/filter symbols |
-| `Esc` | Exit search mode |
-| `s` | Cycle sort mode (Name/Price/Change%) |
-| `S` | Toggle sort direction (Asc/Desc) |
-| `Tab` | Cycle time range |
-| `1` | 1 hour range |
-| `2` | 24 hour range |
-| `3` | 7 day range |
-| `4` | 30 day range |
-| `Tab` | Cycle chart type (Line/Area/Candle) |
+| `j` / `↓` | Move down |
+| `k` / `↑` | Move up |
+| `↵` | Open chart |
+| `n` | Ticker news detail |
+| `a` | Add position |
+| `d` | Remove position |
 | `r` | Refresh data |
-| `?` | Toggle help |
+| `?` | Help overlay |
+| `←` / `→` | Browse market news pages |
+| `1` / `2` / `3` / `4` | Chart range (1h, 24h, 7d, 30d) |
+| `Tab` | Cycle chart type (line → area → candle) |
+| `Esc` | Close overlay / go back |
 | `q` | Quit |
 
-## Data Providers
+<p align="center">
+  <img src="screenshots/Screenshot%202026-07-16%20at%202.36.30 PM.png" width="80%">
+</p>
 
-| Provider | Assets | API Key |
-|----------|--------|---------|
-| `simulator` | Fake data | None |
-| `coingecko` | Crypto | None (free tier) |
-| `yahoo` | Stocks | None (unofficial) |
-| `multi` | Both | None |
+## ⚙️ Configuration
 
-> **Note**: Yahoo Finance API is unofficial and may have rate limits.
-> CoinGecko free tier allows ~10-30 requests/minute.
+Create a `portfolio.yaml` in the project root:
 
-## Supported Platforms
-
-- Linux
-- macOS
-- Windows
-
-## Architecture
-
-```
-cmd/stock-tui/       Entry point
-internal/
-├── app/             Bubble Tea model
-├── config/          Viper configuration
-├── data/            Provider implementations
-├── models/          Domain types
-└── ui/
-    ├── chart/       Price chart component
-    ├── footer/      Status bar
-    ├── help/        Help overlay
-    ├── modal/       Generic modal
-    ├── styles/      Lip Gloss styles
-    └── watchlist/   Symbol list
+```yaml
+holdings:
+  - symbol: GOOGL
+    shares: 5
+    avg_price: 180
+    currency: USD
+  - symbol: AAPL
+    shares: 10
+    avg_price: 150
+    currency: USD
 ```
 
-## Development
+Or press `a` in the app to add positions interactively — the file is updated on
+every change.
+
+## ⚠️ Data Source
+
+All market data comes from **Yahoo Finance's public endpoints**. No API key
+required, no rate limits to manage. The app respects the API and batches
+requests efficiently. For best results, avoid refreshing more than once
+every 5–10 seconds.
+
+## 🏗️ Development
 
 ```bash
-# Run
-go run ./cmd/stock-tui
-
-# Build
-go build ./cmd/stock-tui
-
-# Test
-go test ./...
-
-# Lint
-go vet ./...
+go run ./cmd/stock-tui    # Run
+go build ./cmd/stock-tui  # Build
+go vet ./...              # Lint
 ```
 
-## License
+## 📄 License
 
-[MIT](https://github.com/ni5arga/stock-tui/blob/main/LICENSE)
+[MIT](LICENSE)
