@@ -27,6 +27,12 @@ through interactive price charts -- all without leaving your terminal.
 - **Zero API keys** -- all data from Yahoo Finance's public endpoints
 - **Keyboard-driven** -- modal overlays, keyboard-first design
 
+## Built With
+
+- [Bubble Tea](https://github.com/charmbracelet/bubbletea) -- Go framework for terminal apps
+- [Lip Gloss](https://github.com/charmbracelet/lipgloss) -- style definitions and layouts
+- [Bubbles](https://github.com/charmbracelet/bubbles) -- reusable terminal components (text inputs)
+
 <p align="center">
   <img src="screenshots/two.png" width="80%">
 </p>
