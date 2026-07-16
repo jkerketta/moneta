@@ -119,33 +119,35 @@ func composePetals(bannerStyle lipgloss.Style) string {
 		return l + bannerStyle.Render(s) + r
 	}
 
-	// padRight expands any line to exactly canvas display columns by
-	// appending spaces. This keeps all lines the same width without the
-	// measurement inconsistencies of PlaceHorizontal.
-	padRight := func(s string) string {
-		if w := lipgloss.Width(s); w < canvas {
-			return s + strings.Repeat(" ", canvas-w)
+	// centerLine pads each line to exactly canvas display columns with equal
+	// spacing on both sides. Every line ends up the same width and centered
+	// individually, so JoinVertical(Left) produces a perfectly centered block.
+	centerLine := func(s string) string {
+		w := lipgloss.Width(s)
+		if w >= canvas {
+			return s
 		}
-		return s
+		l := (canvas - w) / 2
+		r := canvas - w - l
+		return strings.Repeat(" ", l) + s + strings.Repeat(" ", r)
 	}
 
 	var stack []string
 
-	stack = append(stack, padRight(petalStyle.Render(petalLine(0, 35, 69))))
-	stack = append(stack, padRight(petalStyle.Render(petalLine(24, 57))))
+	stack = append(stack, centerLine(petalStyle.Render(petalLine(0, 35, 69))))
+	stack = append(stack, centerLine(petalStyle.Render(petalLine(24, 57))))
 
-	stack = append(stack, padRight(pad(lines[0], false, false)))
-	stack = append(stack, padRight(pad(lines[1], true, false)))
-	stack = append(stack, padRight(pad(lines[2], false, false)))
-	stack = append(stack, padRight(pad(lines[3], false, true)))
-	stack = append(stack, padRight(pad(lines[4], false, false)))
-	stack = append(stack, padRight(pad(lines[5], false, false)))
+	stack = append(stack, centerLine(pad(lines[0], false, false)))
+	stack = append(stack, centerLine(pad(lines[1], true, false)))
+	stack = append(stack, centerLine(pad(lines[2], false, false)))
+	stack = append(stack, centerLine(pad(lines[3], false, true)))
+	stack = append(stack, centerLine(pad(lines[4], false, false)))
+	stack = append(stack, centerLine(pad(lines[5], false, false)))
 
-	stack = append(stack, padRight(petalStyle.Render(petalLine(3, 36, 67))))
-	stack = append(stack, padRight(petalStyle.Render(petalLine(18, 52))))
+	stack = append(stack, centerLine(petalStyle.Render(petalLine(3, 36, 67))))
+	stack = append(stack, centerLine(petalStyle.Render(petalLine(18, 52))))
 
-	block := lipgloss.JoinVertical(lipgloss.Left, stack...)
-	return lipgloss.PlaceHorizontal(canvas+4, lipgloss.Center, block)
+	return lipgloss.JoinVertical(lipgloss.Left, stack...)
 }
 
 func (m Model) View() string {
