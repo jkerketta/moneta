@@ -67,10 +67,10 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// petalCanvas is the display width in columns for petal-decorated lines.
-// Wider than the banner so petals at the far edges appear on the left and
-// right sides of the title when the whole composition is centered together.
-const petalCanvas = 80
+// canvas is the uniform width for every line in the decorated banner
+// (petal rows + padded banner lines). All lines share this width so
+// JoinVertical(Center) produces zero alignment shift.
+const canvas = 74
 
 func petalLine(cols ...int) string {
 	var b strings.Builder
@@ -83,19 +83,17 @@ func petalLine(cols ...int) string {
 		b.WriteString("✿")
 		pos++
 	}
-	for pos < petalCanvas {
+	for pos < canvas {
 		b.WriteByte(' ')
 		pos++
 	}
 	return b.String()
 }
 
-// composePetals builds the MONETA banner with petals scattered above, below,
-// and on the sides. Petal lines use a wider canvas than the banner lines, so
-// ✿ at the far columns stick out to the left and right.
-//
-// The banner is kept as three tight pairs (no blank separators) so the title
-// reads as one continuous block despite the side petals.
+// composePetals builds the MONETA banner with petals scattered around it.
+// Every line is exactly `canvas` columns wide — petal rows, banner lines
+// with side petals, and bare banner lines — so the composition has straight
+// edges and no centering artifacts.
 func composePetals(bannerStyle lipgloss.Style) string {
 	petalStyle := lipgloss.NewStyle().Foreground(theme.ColorPurple).Bold(true)
 
@@ -107,26 +105,34 @@ func composePetals(bannerStyle lipgloss.Style) string {
 		}
 	}
 
+	// pad wraps a banner line with a 2-char left prefix and 2-char right
+	// suffix. Either side gets a petal when its bool is true.
+	pad := func(s string, left, right bool) string {
+		l := "  "
+		if left {
+			l = petalStyle.Render("✿") + " "
+		}
+		r := "  "
+		if right {
+			r = " " + petalStyle.Render("✿")
+		}
+		return l + bannerStyle.Render(s) + r
+	}
+
 	var stack []string
 
-	stack = append(stack, petalStyle.Render(petalLine(3, 77)))
-	stack = append(stack, petalStyle.Render(petalLine(48)))
+	stack = append(stack, petalStyle.Render(petalLine(1, 71)))
+	stack = append(stack, petalStyle.Render(petalLine(37)))
 
-	stack = append(stack, bannerStyle.Render(lines[0]))
-	stack = append(stack, bannerStyle.Render(lines[1]))
+	stack = append(stack, pad(lines[0], false, false))
+	stack = append(stack, pad(lines[1], true, false))
+	stack = append(stack, pad(lines[2], false, false))
+	stack = append(stack, pad(lines[3], false, true))
+	stack = append(stack, pad(lines[4], true, false))
+	stack = append(stack, pad(lines[5], false, false))
 
-	stack = append(stack, petalStyle.Render(petalLine(2, 76)))
-
-	stack = append(stack, bannerStyle.Render(lines[2]))
-	stack = append(stack, bannerStyle.Render(lines[3]))
-
-	stack = append(stack, petalStyle.Render(petalLine(2, 76)))
-
-	stack = append(stack, bannerStyle.Render(lines[4]))
-	stack = append(stack, bannerStyle.Render(lines[5]))
-
-	stack = append(stack, petalStyle.Render(petalLine(8, 72)))
-	stack = append(stack, petalStyle.Render(petalLine(40)))
+	stack = append(stack, petalStyle.Render(petalLine(4, 68)))
+	stack = append(stack, petalStyle.Render(petalLine(37)))
 
 	return lipgloss.JoinVertical(lipgloss.Center, stack...)
 }
