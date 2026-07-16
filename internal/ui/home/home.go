@@ -144,7 +144,8 @@ func composePetals(bannerStyle lipgloss.Style) string {
 	stack = append(stack, padRight(petalStyle.Render(petalLine(3, 36, 67))))
 	stack = append(stack, padRight(petalStyle.Render(petalLine(18, 52))))
 
-	return lipgloss.JoinVertical(lipgloss.Left, stack...)
+	block := lipgloss.JoinVertical(lipgloss.Left, stack...)
+	return lipgloss.PlaceHorizontal(canvas+4, lipgloss.Center, block)
 }
 
 func (m Model) View() string {
