@@ -67,8 +67,8 @@ var Themes = []Theme{
 		Accent:     ColorYellow,
 		Shades:     YellowShades,
 		Primary:    "★",
-		Secondary:  "☆",
-		AccentIcon: "☽",
+		Secondary:  "☽",
+		AccentIcon: "✧",
 		Particle:   "✦",
 	},
 	{
