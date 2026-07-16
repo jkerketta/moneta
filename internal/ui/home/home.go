@@ -70,7 +70,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 // canvas is the uniform width for every line in the decorated banner
 // (petal rows + padded banner lines). All lines share this width so
 // JoinVertical(Center) produces zero alignment shift.
-const canvas = 74
+const canvas = 73
 
 func petalLine(cols ...int) string {
 	var b strings.Builder
@@ -121,8 +121,8 @@ func composePetals(bannerStyle lipgloss.Style) string {
 
 	var stack []string
 
-	stack = append(stack, petalStyle.Render(petalLine(1, 71)))
-	stack = append(stack, petalStyle.Render(petalLine(37)))
+	stack = append(stack, petalStyle.Render(petalLine(0, 70)))
+	stack = append(stack, petalStyle.Render(petalLine(36)))
 
 	stack = append(stack, pad(lines[0], false, false))
 	stack = append(stack, pad(lines[1], true, false))
@@ -131,8 +131,8 @@ func composePetals(bannerStyle lipgloss.Style) string {
 	stack = append(stack, pad(lines[4], true, false))
 	stack = append(stack, pad(lines[5], false, false))
 
-	stack = append(stack, petalStyle.Render(petalLine(4, 68)))
-	stack = append(stack, petalStyle.Render(petalLine(37)))
+	stack = append(stack, petalStyle.Render(petalLine(3, 67)))
+	stack = append(stack, petalStyle.Render(petalLine(36)))
 
 	return lipgloss.JoinVertical(lipgloss.Center, stack...)
 }
