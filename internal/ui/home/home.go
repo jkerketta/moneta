@@ -119,26 +119,30 @@ func composePetals(bannerStyle lipgloss.Style) string {
 		return l + bannerStyle.Render(s) + r
 	}
 
-	// center renders each line centered within the uniform canvas width,
-	// so every line has the same width and aligns vertically when stacked.
-	center := func(s string) string {
-		return lipgloss.PlaceHorizontal(canvas, lipgloss.Center, s)
+	// padRight expands any line to exactly canvas display columns by
+	// appending spaces. This keeps all lines the same width without the
+	// measurement inconsistencies of PlaceHorizontal.
+	padRight := func(s string) string {
+		if w := lipgloss.Width(s); w < canvas {
+			return s + strings.Repeat(" ", canvas-w)
+		}
+		return s
 	}
 
 	var stack []string
 
-	stack = append(stack, center(petalStyle.Render(petalLine(0, 35, 69))))
-	stack = append(stack, center(petalStyle.Render(petalLine(24, 57))))
+	stack = append(stack, padRight(petalStyle.Render(petalLine(0, 35, 69))))
+	stack = append(stack, padRight(petalStyle.Render(petalLine(24, 57))))
 
-	stack = append(stack, center(pad(lines[0], false, false)))
-	stack = append(stack, center(pad(lines[1], true, false)))
-	stack = append(stack, center(pad(lines[2], false, false)))
-	stack = append(stack, center(pad(lines[3], false, true)))
-	stack = append(stack, center(pad(lines[4], false, false)))
-	stack = append(stack, center(pad(lines[5], false, false)))
+	stack = append(stack, padRight(pad(lines[0], false, false)))
+	stack = append(stack, padRight(pad(lines[1], true, false)))
+	stack = append(stack, padRight(pad(lines[2], false, false)))
+	stack = append(stack, padRight(pad(lines[3], false, true)))
+	stack = append(stack, padRight(pad(lines[4], false, false)))
+	stack = append(stack, padRight(pad(lines[5], false, false)))
 
-	stack = append(stack, center(petalStyle.Render(petalLine(3, 36, 67))))
-	stack = append(stack, center(petalStyle.Render(petalLine(18, 52))))
+	stack = append(stack, padRight(petalStyle.Render(petalLine(3, 36, 67))))
+	stack = append(stack, padRight(petalStyle.Render(petalLine(18, 52))))
 
 	return lipgloss.JoinVertical(lipgloss.Left, stack...)
 }
