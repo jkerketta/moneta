@@ -68,8 +68,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 // petalCanvas is the display width in columns for petal-decorated lines.
-// Wider than the banner (~70) so petals can sit on the left and right sides
-// of the title when centered together.
+// Wider than the banner so petals at the far edges appear on the left and
+// right sides of the title when the whole composition is centered together.
 const petalCanvas = 80
 
 func petalLine(cols ...int) string {
@@ -90,24 +90,45 @@ func petalLine(cols ...int) string {
 	return b.String()
 }
 
-// petalRows returns decorative petal lines for above and below the banner.
-// All petals use the same purple accent as the title. The canvas is wider
-// than the banner so petals at far-left/right columns appear on the sides
-// when the composition is centered as a whole.
-func petalRows() (top, bot string) {
+// composePetals builds the MONETA banner with petals scattered above, below,
+// and on the sides. Petal lines use a wider canvas than the banner lines, so
+// ✿ at the far columns stick out to the left and right.
+//
+// The banner is kept as three tight pairs (no blank separators) so the title
+// reads as one continuous block despite the side petals.
+func composePetals(bannerStyle lipgloss.Style) string {
 	petalStyle := lipgloss.NewStyle().Foreground(theme.ColorPurple).Bold(true)
 
-	top = lipgloss.JoinVertical(lipgloss.Center,
-		petalStyle.Render(petalLine(3, 77)),
-		petalStyle.Render(petalLine(48)),
-	)
+	raw := strings.Split(banner, "\n")
+	lines := make([]string, 0, 6)
+	for _, l := range raw {
+		if l != "" {
+			lines = append(lines, l)
+		}
+	}
 
-	bot = lipgloss.JoinVertical(lipgloss.Center,
-		petalStyle.Render(petalLine(8, 72)),
-		petalStyle.Render(petalLine(40)),
-	)
+	var stack []string
 
-	return
+	stack = append(stack, petalStyle.Render(petalLine(3, 77)))
+	stack = append(stack, petalStyle.Render(petalLine(48)))
+
+	stack = append(stack, bannerStyle.Render(lines[0]))
+	stack = append(stack, bannerStyle.Render(lines[1]))
+
+	stack = append(stack, petalStyle.Render(petalLine(2, 76)))
+
+	stack = append(stack, bannerStyle.Render(lines[2]))
+	stack = append(stack, bannerStyle.Render(lines[3]))
+
+	stack = append(stack, petalStyle.Render(petalLine(2, 76)))
+
+	stack = append(stack, bannerStyle.Render(lines[4]))
+	stack = append(stack, bannerStyle.Render(lines[5]))
+
+	stack = append(stack, petalStyle.Render(petalLine(8, 72)))
+	stack = append(stack, petalStyle.Render(petalLine(40)))
+
+	return lipgloss.JoinVertical(lipgloss.Center, stack...)
 }
 
 func (m Model) View() string {
@@ -123,7 +144,7 @@ func (m Model) View() string {
 		Foreground(theme.ColorMuted).
 		Italic(true)
 
-	petalTop, petalBot := petalRows()
+	bannerComposed := composePetals(bannerStyle)
 
 	var rows []string
 	for i, it := range menuItems {
@@ -147,11 +168,7 @@ func (m Model) View() string {
 		Render("↑↓/jk navigate  ↵ select  q quit")
 
 	content := lipgloss.JoinVertical(lipgloss.Center,
-		petalTop,
-		"",
-		bannerStyle.Render(banner),
-		"",
-		petalBot,
+		bannerComposed,
 		taglineStyle.Render(tagline),
 		"",
 		"",
