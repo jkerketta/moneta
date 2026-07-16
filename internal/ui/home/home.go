@@ -97,6 +97,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			if m.previewMode {
 				theme.Revert()
 				m.previewMode = false
+				m.selectingTheme = true
 				return m, nil
 			}
 			if m.selectingTheme {

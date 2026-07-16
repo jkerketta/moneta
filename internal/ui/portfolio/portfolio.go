@@ -444,14 +444,14 @@ func (m Model) updateNewsDetail(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case "escape", "esc", "n":
 		m.mode = modeBrowse
 		return m, nil
-	case "j", "J", "down":
-		if m.tickerNewsScroll < len(m.tickerNews)-1 {
-			m.tickerNewsScroll++
-		}
-		return m, nil
-	case "k", "K", "up":
+	case "left":
 		if m.tickerNewsScroll > 0 {
 			m.tickerNewsScroll--
+		}
+		return m, nil
+	case "right":
+		if m.tickerNewsScroll < len(m.tickerNews)-1 {
+			m.tickerNewsScroll++
 		}
 		return m, nil
 	}
@@ -734,7 +734,7 @@ func (m Model) newsDetailView() string {
 		nav := ""
 		if len(m.tickerNews) > 1 {
 			nav = lipgloss.NewStyle().Foreground(theme.ColorMuted).Render(
-				fmt.Sprintf("J/K next/prev  (%d/%d)  ", m.tickerNewsScroll+1, len(m.tickerNews)))
+				fmt.Sprintf("← → navigate  (%d/%d)  ", m.tickerNewsScroll+1, len(m.tickerNews)))
 		}
 		hint := lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("Esc / n close")
 
