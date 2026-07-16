@@ -23,6 +23,7 @@ const (
 	modeRemove
 	modeChart
 	modeNewsDetail
+	modeHelp
 )
 
 // marketSignals are the broad-market tickers whose news fills the Market
@@ -61,6 +62,9 @@ type Model struct {
 	chartSymbol string
 	chartRange  models.TimeRange
 
+	sortMode int
+	sortAsc  bool
+
 	Width  int
 	Height int
 }
@@ -72,6 +76,8 @@ func New() Model {
 		quotes:       make(map[string]models.Quote),
 		marketQuotes: make(map[string]models.Quote),
 		chartRange:   models.Range24H,
+		sortMode:     0,
+		sortAsc:      true,
 	}
 }
 
@@ -227,6 +233,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			return m.updateChartOverlay(msg)
 		case modeNewsDetail:
 			return m.updateNewsDetail(msg)
+		case modeHelp:
+			return m.updateHelp(msg)
 		default:
 			return m.updateBrowse(msg)
 		}
@@ -356,6 +364,18 @@ func (m Model) updateBrowse(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.Chart.SetLoading(true)
 		return m, m.fetchHistory(sym, m.chartRange)
 
+	case "s":
+		m.sortMode = (m.sortMode + 1) % 5
+		return m, nil
+
+	case "S":
+		m.sortAsc = !m.sortAsc
+		return m, nil
+
+	case "?":
+		m.mode = modeHelp
+		return m, nil
+
 	case "n":
 		if len(m.Holdings) == 0 {
 			return m, nil
@@ -458,6 +478,55 @@ func (m Model) updateNewsDetail(msg tea.KeyMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m Model) updateHelp(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch msg.String() {
+	case "?", "escape", "esc", "enter":
+		m.mode = modeBrowse
+		return m, nil
+	}
+	return m, nil
+}
+
+func (m Model) helpView() string {
+	type entry struct {
+		key string
+		action string
+	}
+	entries := []entry{
+		{"↑↓ / jk", "Select holding"},
+		{"↵", "Chart (selected holding)"},
+		{"n", "News detail (selected)"},
+		{"a / d", "Add / remove position"},
+		{"s / S", "Cycle sort / direction"},
+		{"← →", "Browse market news"},
+		{"r", "Refresh data"},
+		{"?", "Toggle help"},
+		{"Esc", "Back / close"},
+		{"q", "Quit (from home)"},
+	}
+
+	var rows []string
+	for _, e := range entries {
+		k := lipgloss.NewStyle().Foreground(theme.Current().Accent).Bold(true).Render(fmt.Sprintf("%-11s", e.key))
+		a := lipgloss.NewStyle().Foreground(theme.ColorText).Render(e.action)
+		rows = append(rows, "  "+k+a)
+	}
+	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
+
+	title := lipgloss.NewStyle().Foreground(theme.Current().Accent).Bold(true).Render("Keyboard Shortcuts")
+	hint := lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("?  Esc  ↵  Close help")
+
+	content := lipgloss.JoinVertical(lipgloss.Center, title, "", body, "", hint)
+	box := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.Current().Accent).
+		Padding(1, 3).
+		Render(content)
+
+	return lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, box,
+		lipgloss.WithWhitespaceForeground(theme.ColorBg))
+}
+
 func (m *Model) savePortfolio() {
 	p := &models.Portfolio{Holdings: m.Holdings}
 	data.SavePortfolio(data.PortfolioPath, p)
@@ -514,6 +583,26 @@ func (m Model) computePositions() (rows []positionRow, totalValue float64) {
 			rows[i].weight = rows[i].value / totalValue * 100
 		}
 	}
+
+	sort.SliceStable(rows, func(i, j int) bool {
+		less := false
+		switch m.sortMode {
+		case 0:
+			less = rows[i].symbol < rows[j].symbol
+		case 1:
+			less = rows[i].price < rows[j].price
+		case 2:
+			less = rows[i].value < rows[j].value
+		case 3:
+			less = rows[i].weight < rows[j].weight
+		case 4:
+			less = rows[i].plPct < rows[j].plPct
+		}
+		if !m.sortAsc {
+			return !less
+		}
+		return less
+	})
 	return rows, totalValue
 }
 
@@ -578,6 +667,8 @@ func (m Model) View() string {
 		return m.chartOverlayView()
 	case modeNewsDetail:
 		return m.newsDetailView()
+	case modeHelp:
+		return m.helpView()
 	default:
 		return m.mainView()
 	}
@@ -619,7 +710,7 @@ func (m Model) mainView() string {
 	}
 
 	footer := lipgloss.NewStyle().Foreground(theme.ColorMuted).
-		Render("  a add  d remove  ↵ chart  n news  r refresh  ↑↓ select  ← → browse news  Esc back")
+		Render("  a add  d remove  ↵ chart  n news  s sort  ? help  r refresh  ↑↓ select  ← → news  Esc back")
 
 	return lipgloss.JoinVertical(lipgloss.Left, body, footer)
 }
@@ -641,12 +732,23 @@ func (m Model) leftPaneView(rows []positionRow, totalValue float64, width, heigh
 
 	table := m.positionsTableView(rows)
 
+	positionsHeader := sectionHeader("POSITIONS")
+	if m.sortMode > 0 || !m.sortAsc {
+		names := []string{"Symbol", "Price", "Value", "Weight", "P/L"}
+		dir := "\u2191" // up arrow
+		if !m.sortAsc {
+			dir = "\u2193" // down arrow
+		}
+		positionsHeader += lipgloss.NewStyle().Foreground(theme.ColorMuted).Italic(true).
+			Render(fmt.Sprintf("  [%s %s]", names[m.sortMode], dir))
+	}
+
 	content := lipgloss.JoinVertical(lipgloss.Left,
 		header,
 		"",
 		alloc,
 		"",
-		sectionHeader("POSITIONS"),
+		positionsHeader,
 		table,
 	)
 

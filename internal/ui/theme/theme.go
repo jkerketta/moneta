@@ -1,6 +1,12 @@
 package theme
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"os"
+	"strconv"
+	"strings"
+
+	"github.com/charmbracelet/lipgloss"
+)
 
 // Rose Pine Moon base palette (shared across all themes)
 var (
@@ -108,6 +114,27 @@ var (
 func CurrentIdx() int   { return currentIdx }
 func Current() *Theme   { return &Themes[currentIdx] }
 
+const themeFile = "theme.dat"
+
+// LoadTheme reads the persisted theme index from disk and applies it.
+// If the file doesn't exist or is invalid the default (index 0) is used.
+func LoadTheme() {
+	data, err := os.ReadFile(themeFile)
+	if err != nil {
+		return
+	}
+	idx, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil || idx < 0 || idx >= len(Themes) {
+		return
+	}
+	currentIdx = idx
+	savedIdx = idx
+}
+
+func saveTheme() error {
+	return os.WriteFile(themeFile, []byte(strconv.Itoa(currentIdx)+"\n"), 0644)
+}
+
 // Preview sets the current theme to index i without confirming it.
 // The previously confirmed theme is remembered for Revert.
 func Preview(i int) {
@@ -120,6 +147,7 @@ func Preview(i int) {
 // Confirm commits the current previewed theme as the permanent choice.
 func Confirm() {
 	savedIdx = currentIdx
+	saveTheme()
 }
 
 // Revert restores the theme that was active before the last Preview call.

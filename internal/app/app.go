@@ -6,6 +6,7 @@ import (
 	"github.com/jkerketta/stocktui/internal/models"
 	"github.com/jkerketta/stocktui/internal/ui/home"
 	"github.com/jkerketta/stocktui/internal/ui/portfolio"
+	"github.com/jkerketta/stocktui/internal/ui/theme"
 )
 
 type screen int
@@ -24,6 +25,8 @@ type AppModel struct {
 }
 
 func New() *AppModel {
+	theme.LoadTheme()
+
 	m := &AppModel{
 		screen:    screenHome,
 		home:      home.New(),
