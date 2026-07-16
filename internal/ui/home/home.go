@@ -127,8 +127,8 @@ func composePetals(bannerStyle lipgloss.Style) string {
 
 	var stack []string
 
-	stack = append(stack, center(petalStyle.Render(petalLine(0, 36, 70))))
-	stack = append(stack, center(petalStyle.Render(petalLine(25, 58))))
+	stack = append(stack, center(petalStyle.Render(petalLine(0, 35, 69))))
+	stack = append(stack, center(petalStyle.Render(petalLine(24, 57))))
 
 	stack = append(stack, center(pad(lines[0], false, false)))
 	stack = append(stack, center(pad(lines[1], true, false)))
