@@ -14,18 +14,18 @@
 
 A terminal-native portfolio tracker for developers who live in the command line.
 Track your holdings, browse real-time market news, check sentiment, and flip
-through interactive price charts — all without leaving your terminal.
+through interactive price charts -- all without leaving your terminal.
 
 ## Features
 
-- **Portfolio tracking** — P&L, allocation donut, per-position performance
-- **Live market data** — S&P 500, Dow, NASDAQ, crude oil, gold at a glance
-- **Market news + sentiment** — real-time headlines with bullish/bearish scoring
-- **Ticker-specific news** — press `n` on any holding for a headline detail card
-- **Interactive charts** — line, area, and candlestick views with sparklines
-- **5 themes** — Rose Pine Moon, Golden Hour, Coral Reef, Emerald Forest, Midnight Ice
-- **Zero API keys** — all data from Yahoo Finance's public endpoints
-- **Vim keys** — `j`/`k` navigation, modal overlays, keyboard-first design
+- **Portfolio tracking** -- P&L, allocation donut, per-position performance
+- **Live market data** -- S&P 500, Dow, NASDAQ, crude oil, gold at a glance
+- **Market news + sentiment** -- real-time headlines with bullish/bearish scoring
+- **Ticker-specific news** -- press `n` on any holding for a headline detail card
+- **Interactive charts** -- line, area, and candlestick views with sparklines
+- **5 themes** -- Rose Pine Moon, Golden Hour, Coral Reef, Emerald Forest, Midnight Ice
+- **Zero API keys** -- all data from Yahoo Finance's public endpoints
+- **Vim keys** -- `j`/`k` navigation, modal overlays, keyboard-first design
 
 <p align="center">
   <img src="screenshots/two.png" width="80%">
@@ -45,7 +45,7 @@ Then add your first position with `a`.
 ## Themes
 
 Press `Change Theme` from the home menu to preview and switch between five
-themes — each with its own accent color and decorative icon set.
+themes -- each with its own accent color and decorative icon set.
 
 | Theme | Accent | Icons |
 |-------|--------|-------|
@@ -89,7 +89,7 @@ holdings:
     currency: USD
 ```
 
-Or press `a` in the app to add positions interactively — the file is updated on
+Or press `a` in the app to add positions interactively -- the file is updated on
 every change.
 
 ## Data Source
@@ -97,7 +97,7 @@ every change.
 All market data comes from **Yahoo Finance's public endpoints**. No API key
 required, no rate limits to manage. The app respects the API and batches
 requests efficiently. For best results, avoid refreshing more than once
-every 5–10 seconds.
+every 5-10 seconds.
 
 ## Development
 
