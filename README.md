@@ -25,7 +25,7 @@ through interactive price charts -- all without leaving your terminal.
 - **Interactive charts** -- line, area, and candlestick views with sparklines
 - **5 themes** -- Rose Pine Moon, Golden Hour, Coral Reef, Emerald Forest, Midnight Ice
 - **Zero API keys** -- all data from Yahoo Finance's public endpoints
-- **Vim keys** -- `j`/`k` navigation, modal overlays, keyboard-first design
+- **Keyboard-driven** -- modal overlays, keyboard-first design
 
 <p align="center">
   <img src="screenshots/two.png" width="80%">
@@ -49,18 +49,18 @@ themes -- each with its own accent color and decorative icon set.
 
 | Theme | Accent | Icons |
 |-------|--------|-------|
-| Rose Pine Moon | `#c4a7e7` purple | ✿ ❀ ✾ · |
-| Golden Hour | `#f6c177` yellow | ★ ☽ ✧ ✦ |
-| Coral Reef | `#e8736a` coral | ❂ ✧ ▹ · |
-| Emerald Forest | `#4a9c5d` green | ☘ ❧ ✻ ✧ |
-| Midnight Ice | `#7ec8e3` blue | ❄ ✧ ◇ · |
+| Rose Pine Moon | `#c4a7e7` purple | ✿&#xFE0E; ❀&#xFE0E; ✾&#xFE0E; · |
+| Golden Hour | `#f6c177` yellow | ★&#xFE0E; ☽&#xFE0E; ✧&#xFE0E; ✦&#xFE0E; |
+| Coral Reef | `#e8736a` coral | ❂&#xFE0E; ✧&#xFE0E; ▹&#xFE0E; · |
+| Emerald Forest | `#4a9c5d` green | ☘&#xFE0E; ❧&#xFE0E; ✻&#xFE0E; ✧&#xFE0E; |
+| Midnight Ice | `#7ec8e3` blue | ❄&#xFE0E; ✧&#xFE0E; ◇&#xFE0E; · |
 
 ## Keybindings
 
 | Key | Action |
 |-----|--------|
-| `j` / `↓` | Move down |
-| `k` / `↑` | Move up |
+| `↓` | Move down |
+| `↑` | Move up |
 | `↵` | Open chart |
 | `n` | Ticker news detail |
 | `a` | Add position |
