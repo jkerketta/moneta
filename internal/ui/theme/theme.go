@@ -85,9 +85,9 @@ var Themes = []Theme{
 		Accent:     GreenShades[1],
 		Shades:     GreenShades,
 		Primary:    "☘",
-		Secondary:  "◇",
-		AccentIcon: "✿",
-		Particle:   "·",
+		Secondary:  "❧",
+		AccentIcon: "✻",
+		Particle:   "✧",
 	},
 	{
 		Name:       "Midnight Ice",
