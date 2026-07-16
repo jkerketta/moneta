@@ -125,10 +125,10 @@ func composePetals(bannerStyle lipgloss.Style) string {
 	stack = append(stack, petalStyle.Render(petalLine(36)))
 
 	stack = append(stack, pad(lines[0], false, false))
-	stack = append(stack, pad(lines[1], true, false))
+	stack = append(stack, pad(lines[1], false, false))
 	stack = append(stack, pad(lines[2], false, false))
-	stack = append(stack, pad(lines[3], false, true))
-	stack = append(stack, pad(lines[4], true, false))
+	stack = append(stack, pad(lines[3], false, false))
+	stack = append(stack, pad(lines[4], false, false))
 	stack = append(stack, pad(lines[5], false, false))
 
 	stack = append(stack, petalStyle.Render(petalLine(3, 67)))
