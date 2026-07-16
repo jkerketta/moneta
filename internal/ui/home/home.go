@@ -67,10 +67,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// canvas is the uniform width for every line in the decorated banner
-// (petal rows + padded banner lines). All lines share this width so
-// JoinVertical(Center) produces zero alignment shift.
-const canvas = 73
+const canvas = 90
 
 func petalLine(cols ...int) string {
 	var b strings.Builder
@@ -119,16 +116,6 @@ func composePetals(bannerStyle lipgloss.Style) string {
 		return l + bannerStyle.Render(s) + r
 	}
 
-	// padRight expands any line to exactly canvas display columns by
-	// appending trailing spaces. Used for petal-only rows that should stay
-	// flush-left.
-	padRight := func(s string) string {
-		if w := lipgloss.Width(s); w < canvas {
-			return s + strings.Repeat(" ", canvas-w)
-		}
-		return s
-	}
-
 	// centerLine pads each line to exactly canvas display columns with equal
 	// spacing on both sides. Every line ends up the same width and centered
 	// individually, so JoinVertical(Left) produces a perfectly centered block.
@@ -144,8 +131,8 @@ func composePetals(bannerStyle lipgloss.Style) string {
 
 	var stack []string
 
-	stack = append(stack, padRight(petalStyle.Render(petalLine(0, 35, 69))))
-	stack = append(stack, padRight(petalStyle.Render(petalLine(24, 57))))
+	stack = append(stack, centerLine(petalStyle.Render(petalLine(0, 35, 69))))
+	stack = append(stack, centerLine(petalStyle.Render(petalLine(24, 57))))
 
 	stack = append(stack, centerLine(pad(lines[0], false, false)))
 	stack = append(stack, centerLine(pad(lines[1], true, false)))
