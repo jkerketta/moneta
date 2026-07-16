@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jkerketta/stocktui/internal/models"
-	"github.com/jkerketta/stocktui/internal/ui/styles"
+	"github.com/jkerketta/stocktui/internal/ui/theme"
 )
 
 type ChartType int
@@ -102,7 +102,7 @@ func (m Model) View() string {
 		content = m.render()
 	}
 
-	return styles.ActivePane.Width(m.width).Height(m.height).Render(content)
+	return theme.ActivePane().Width(m.width).Height(m.height).Render(content)
 }
 
 func (m Model) render() string {
@@ -143,23 +143,23 @@ func (m Model) render() string {
 	pct := change / closes[0] * 100
 
 	up := change >= 0
-	trendColor := styles.ColorSuccess
+	trendColor := theme.ColorSuccess
 	if !up {
-		trendColor = styles.ColorError
+		trendColor = theme.ColorError
 	}
 
 	var b strings.Builder
 	b.WriteString(lipgloss.NewStyle().Bold(true).Render(m.symbol))
 	b.WriteString("  ")
-	b.WriteString(lipgloss.NewStyle().Foreground(styles.ColorSubtext).Render(string(m.timeRange)))
+	b.WriteString(lipgloss.NewStyle().Foreground(theme.ColorSubtext).Render(string(m.timeRange)))
 	b.WriteString("  ")
 	b.WriteString(lipgloss.NewStyle().Foreground(trendColor).Bold(true).Render(
 		fmt.Sprintf("$%.2f (%+.2f%%)", lastP, pct)))
 	b.WriteString("  ")
-	b.WriteString(lipgloss.NewStyle().Foreground(styles.ColorSubtext).Render("[" + m.ChartTypeName() + "]"))
+	b.WriteString(lipgloss.NewStyle().Foreground(theme.ColorSubtext).Render("[" + m.ChartTypeName() + "]"))
 
 	if m.stale {
-		warnStyle := lipgloss.NewStyle().Foreground(styles.ColorWarning).Bold(true)
+		warnStyle := lipgloss.NewStyle().Foreground(theme.ColorWarning).Bold(true)
 		b.WriteString("  ")
 		b.WriteString(warnStyle.Render(fmt.Sprintf("⚠ RATE LIMITED (Refreshing in %s)", m.retryAfter.Round(time.Second))))
 	}
@@ -283,9 +283,9 @@ func (m Model) render() string {
 	}
 
 	// Render canvas with colors
-	greenS := lipgloss.NewStyle().Foreground(styles.ColorSuccess)
-	redS := lipgloss.NewStyle().Foreground(styles.ColorError)
-	dimS := lipgloss.NewStyle().Foreground(styles.ColorSubtext)
+	greenS := lipgloss.NewStyle().Foreground(theme.ColorSuccess)
+	redS := lipgloss.NewStyle().Foreground(theme.ColorError)
+	dimS := lipgloss.NewStyle().Foreground(theme.ColorSubtext)
 
 	for row := 0; row < chartH; row++ {
 		// Y-axis label
@@ -345,11 +345,11 @@ func (m Model) sparkline(prices []float64, width int) string {
 	}
 
 	step := float64(n) / float64(width)
-	greenS := lipgloss.NewStyle().Foreground(styles.ColorSuccess)
-	redS := lipgloss.NewStyle().Foreground(styles.ColorError)
+	greenS := lipgloss.NewStyle().Foreground(theme.ColorSuccess)
+	redS := lipgloss.NewStyle().Foreground(theme.ColorError)
 
 	var out strings.Builder
-	out.WriteString(lipgloss.NewStyle().Foreground(styles.ColorSubtext).Render("   Trend "))
+	out.WriteString(lipgloss.NewStyle().Foreground(theme.ColorSubtext).Render("   Trend "))
 
 	prev := prices[0]
 	for i := 0; i < width; i++ {

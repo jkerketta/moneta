@@ -537,7 +537,7 @@ func (m Model) positionsTableView(rows []positionRow) string {
 		symStyle := lipgloss.NewStyle().Foreground(theme.ColorText)
 		if i == m.selectedIdx {
 			marker = "▸ "
-			symStyle = symStyle.Foreground(theme.ColorPurple).Bold(true)
+			symStyle = symStyle.Foreground(theme.Current().Accent).Bold(true)
 		}
 
 		priceColor := theme.ColorText
@@ -588,7 +588,7 @@ func (m Model) mainView() string {
 		empty := lipgloss.JoinVertical(lipgloss.Center,
 			lipgloss.NewStyle().Foreground(theme.ColorMuted).Render("No holdings yet."),
 			"",
-			lipgloss.NewStyle().Foreground(theme.ColorPurple).Bold(true).Render("Press 'a' to add your first position"),
+			lipgloss.NewStyle().Foreground(theme.Current().Accent).Bold(true).Render("Press 'a' to add your first position"),
 		)
 		return lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, empty,
 			lipgloss.WithWhitespaceForeground(theme.ColorBg))
@@ -662,7 +662,7 @@ func (m Model) leftPaneView(rows []positionRow, totalValue float64, width, heigh
 func (m Model) addFormView() string {
 	box := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(theme.ColorPurple).
+		BorderForeground(theme.Current().Accent).
 		Padding(1, 3).
 		Render(m.form.View())
 
@@ -697,7 +697,7 @@ func (m Model) removeConfirmView() string {
 func (m Model) chartOverlayView() string {
 	box := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(theme.ColorPurple).
+		BorderForeground(theme.Current().Accent).
 		Render(m.Chart.View())
 
 	hint := lipgloss.NewStyle().Foreground(theme.ColorMuted).
@@ -722,7 +722,7 @@ func (m Model) newsDetailView() string {
 		item := m.tickerNews[m.tickerNewsScroll]
 		sym := m.Holdings[m.selectedIdx].Symbol
 
-		title := lipgloss.NewStyle().Foreground(theme.ColorPurple).Bold(true).Render("— " + sym + " News —")
+		title := lipgloss.NewStyle().Foreground(theme.Current().Accent).Bold(true).Render("— " + sym + " News —")
 		divider := lipgloss.NewStyle().Foreground(theme.ColorBorder).Render(strings.Repeat("─", 50))
 
 		headline := lipgloss.NewStyle().Foreground(theme.ColorText).Bold(true).Render(item.Headline)
@@ -753,7 +753,7 @@ func (m Model) newsDetailView() string {
 
 	box := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(theme.ColorPurple).
+		BorderForeground(theme.Current().Accent).
 		Padding(2, 3).
 		Render(body)
 

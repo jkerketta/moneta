@@ -197,7 +197,7 @@ func (m Model) insightsView(width, height int) string {
 		width = 4
 	}
 
-	title := lipgloss.NewStyle().Foreground(theme.ColorPurple).Bold(true).Render("MARKET PULSE")
+	title := lipgloss.NewStyle().Foreground(theme.Current().Accent).Bold(true).Render("MARKET PULSE")
 	divider := lipgloss.NewStyle().Foreground(theme.ColorBorder).Render(strings.Repeat("─", max(width-4, 4)))
 
 	sentimentBody := sentimentMeterView(m.sentiment)
